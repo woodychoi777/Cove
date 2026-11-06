@@ -1,0 +1,104 @@
+import { openCollectionSong } from './song-ui.mjs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
+import { playableFlac } from './fixtures.mjs';
+import { navigateTo, songMenu, openComments } from './song-ui.mjs';
+
+test('독립 스크롤: 긴 본문/탐색·상세 복귀·큐/메뉴·가사·초안·파일 보존', { skip: !process.env.RUN_BROWSER_TESTS, timeout: 120000 }, async t => {
+  const module = process.env.PLAYWRIGHT_MODULE || 'playwright';
+  const { chromium } = await import(module);
+  const { expect } = await import(module.startsWith('/') ? pathToFileURL(join(module, '..', 'test.mjs')).href : 'playwright/test');
+  const root = await mkdtemp(join(tmpdir(), 'cove-independent-scroll-'));
+  const out = resolve(process.env.SCROLL_ARTIFACT_DIR || join(root, 'evidence')); await mkdir(out, { recursive: true });
+  const server = spawn(process.execPath, ['src/server.mjs'], { env: { ...process.env, PORT: '46317', SORISEOJAE_DATA_DIR: join(root, 'data') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  t.after(() => server.kill('SIGTERM')); let stderr = '';
+  server.stderr.on('data', c => stderr += c);
+  await new Promise((ok, no) => { const timer = setTimeout(() => no(Error(stderr || 'start timeout')), 10000); server.stdout.on('data', c => { if (String(c).includes('프로토타입:')) { clearTimeout(timer); ok(); } }); server.on('exit', () => { clearTimeout(timer); no(Error(stderr)); }); });
+  const url = 'http://127.0.0.1:46317', originals = [], songs = [], checks = [], layouts = [], errors = [];
+  const api = async path => (await fetch(url + path)).json();
+  const post = async (path, body) => { const r = await fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); assert.equal(r.ok, true); return r.json(); };
+  for (let i = 0; i < 30; i++) {
+    const bytes = playableFlac({ title: `독립 스크롤 ${String(i).padStart(2, '0')}`, artist: '검사 가수', album: '스크롤 검사', seconds: 12, frequency: 220 + i * 20 }); originals.push(bytes);
+    const staged = await (await fetch(url + '/api/stage', { method: 'POST', headers: { 'x-file-name': `${i}.flac` }, body: bytes })).json();
+    songs.push(await post('/api/commit', { importId: staged.importId, metadata: { lrcText: Array.from({ length: 60 }, (_, n) => `[${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}]검사 가사 ${n + 1}`).join('\n'), lrcSourceName: `${i}.lrc` } }));
+  }
+  const db = new DatabaseSync(join(root, 'data/soriseojae.sqlite')); t.after(() => db.close());
+  db.exec("UPDATE tracks SET created_at='2020-01-01T00:00:00Z', is_life_song=1, memory='기존 기록'");
+  for (const song of songs.slice(0, 10)) db.prepare('INSERT INTO playback_events(track_id,created_at,listened_ms,completed) VALUES(?,?,6000,0)').run(song.id, new Date().toISOString());
+  const before = await api('/api/export');
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }); page.on('pageerror', e => errors.push(e.message));
+  t.after(async () => { await page.screenshot({ path: join(out, 'last-state.png') }).catch(() => {}); await writeFile(join(out, 'partial.json'), JSON.stringify({ root, checks, layouts, errors }, null, 2)); await browser.close(); });
+  const main = page.locator('#main-content'), sidebar = page.locator('.sidebar');
+  const top = () => main.evaluate(el => el.scrollTop);
+  const row = id => page.locator(`#library-grid [data-row-play="${id}"]`);
+  const queue = () => page.evaluate(() => localStorage.getItem('soriseojae.queue'));
+  const noWindowScroll = async () => assert.equal(await page.evaluate(() => window.scrollY === 0 && document.documentElement.scrollHeight <= innerHeight && document.body.scrollHeight <= innerHeight), true);
+  const pause = async () => { if (await page.locator('#mini-play').getAttribute('aria-label') === '일시정지') await page.locator('#mini-play').click(); };
+  await page.goto(url); await navigateTo(page, 'library');
+  const bottomId = Number(await page.locator('#library-grid [data-row-play]').last().getAttribute('data-row-play'));
+  await main.evaluate(el => el.scrollTop = el.scrollHeight); await expect(row(bottomId)).toBeInViewport();
+  assert.equal(await sidebar.evaluate(el => el.scrollTop), 0); await expect(page.locator('.brand')).toBeInViewport(); await expect(page.locator('.nav-button[data-route="home"]')).toBeInViewport(); await noWindowScroll();
+  await row(bottomId).click(); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지'); await pause(); await main.evaluate(el => el.scrollTop = el.scrollHeight);
+  const source = await top();
+  await openCollectionSong(page,bottomId);
+  await expect(sidebar).toBeHidden(); await page.locator('[data-detail-back]').click(); await expect.poll(top).toBe(source); await expect(page.locator('#mini-track')).toBeFocused();
+  await row(bottomId).press('Shift+F10');
+  await main.evaluate(el => el.scrollTop -= 80); await expect(page.locator('.song-menu:popover-open')).toHaveCount(0);
+  checks.push('long-collection-independent-sidebar-no-body-scroll-detail-back-exact-position-focus-scroll-dismisses-context-menu');
+  await row(songs[28].id).click(); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label', '일시정지'); await pause(); const savedQueue = await queue();
+  await page.locator('#queue-open').click(); const behind = await top();
+  await page.locator('.queue-body').evaluate(el => el.scrollTop = el.scrollHeight);
+  await page.locator('[data-queue-up="29"]').click(); assert.equal(await top(), behind);
+  await page.locator('#queue-close').click(); assert.equal(await top(), behind); await noWindowScroll();
+  checks.push('player-height-reservation-queue-open-current-reveal-internal-reorder-close-no-background-jump');
+  await page.setViewportSize({ width: 1280, height: 240 });
+  await expect.poll(() => sidebar.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  const shortMain = await top(); await sidebar.evaluate(el => el.scrollTop = el.scrollHeight); assert.equal(await top(), shortMain);
+  const sideTop = await sidebar.evaluate(el => el.scrollTop); assert(sideTop > 0); await main.evaluate(el => el.scrollTop = 100); assert.equal(await sidebar.evaluate(el => el.scrollTop), sideTop); await noWindowScroll();
+  checks.push('short-desktop-sidebar-overflow-scrolls-independently-both-directions');
+  for (const [width, height, scheme] of [[1280, 800, 'light'], [1000, 700, 'dark'], [390, 700, 'light'], [320, 568, 'dark'], [600, 434, 'dark']]) {
+    await page.setViewportSize({ width, height }); await page.emulateMedia({ colorScheme: scheme }); await navigateTo(page, 'home');
+    await main.evaluate(el => el.scrollTop = el.scrollHeight);
+    await expect(page.locator('.nav-button[data-route="library"]')).toBeInViewport();
+    const last = page.locator('#recent-listening-list [data-quick-append]').last(); await last.focus();
+    await expect.poll(() => last.evaluate(el => { const r = el.getBoundingClientRect(), m = document.querySelector('#main-content').getBoundingClientRect(); return r.top >= m.top + 5 && r.bottom <= m.bottom - 5; })).toBe(true);
+    await noWindowScroll();
+    layouts.push({ width, height, scheme, mainTop: await top() }); await page.screenshot({ path: join(out, `today-${width}-${scheme}.png`) });
+    // A recommendations refresh and detail return preserve the scrolled Today position.
+    await last.click(); const stableTop = await top(); await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await expect.poll(top).toBe(stableTop);
+    await page.locator('#mini-track').click(); await expect(sidebar).toBeHidden(); await page.locator('[data-detail-back]').click(); await expect.poll(top).toBe(stableTop);
+    await navigateTo(page, 'library'); await row(songs[29].id).focus();
+    await expect.poll(() => row(songs[29].id).evaluate(el => { const r = el.getBoundingClientRect(), m = document.querySelector('#main-content').getBoundingClientRect(); return r.top >= m.top + 5 && r.bottom <= m.bottom - 5; })).toBe(true);
+    await page.screenshot({ path: join(out, `collection-${width}-${scheme}.png`) });
+    assert.equal(await main.evaluate(el => getComputedStyle(el).scrollbarWidth), 'none');
+  }
+  checks.push('five-layouts-themes-fixed-top-navigation-bottom-focus-today-refresh-and-return-native-list-scrollbars');
+  await page.setViewportSize({ width: 1280, height: 800 }); await openCollectionSong(page,songs[0].id);
+  const reader = page.locator('[data-lyrics-lines]');
+  await reader.locator('[data-lyric-index="0"]').click(); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label', '일시정지'); await pause();
+  for (const scheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme: scheme }); await expect(reader).toHaveCSS('scrollbar-width', 'none');
+    await expect(reader).toHaveCSS('overflow-y', 'auto'); await expect(reader).toHaveCSS('scrollbar-gutter', 'auto');
+    await reader.focus(); await reader.press('End'); await expect(reader).toHaveAttribute('data-follow', 'false'); await expect.poll(() => reader.evaluate(el => el.scrollTop > el.clientHeight)).toBe(true);
+    await page.locator('[data-lyrics-follow]').click(); await expect(reader).toHaveAttribute('data-follow', 'true');
+    await page.screenshot({ path: join(out, `lyrics-${scheme}.png`) });
+  }
+  await songMenu(page, '[data-edit-info]');
+  const translation = page.locator('#track-info-form [name="lyricsTranslation"]'); await translation.fill('저장하지 않은 번역 초안');
+  assert.equal(await translation.evaluate(el => getComputedStyle(el).scrollbarWidth), 'none');
+  await page.keyboard.press('Escape');await openComments(page); await page.locator('#comment-text').fill('저장하지 않은 코멘트 초안'); await page.keyboard.press('Escape');
+  await page.locator('[data-detail-back]').click();
+  await openCollectionSong(page,songs[0].id); await songMenu(page, '[data-edit-info]');
+  await expect(translation).toHaveValue('저장하지 않은 번역 초안');await page.keyboard.press('Escape'); await openComments(page); await expect(page.locator('#comment-text')).toHaveValue('저장하지 않은 코멘트 초안'); await page.keyboard.press('Escape');
+  const after = await api('/api/export'); assert.deepEqual(after.tracks, before.tracks); assert.deepEqual(after.playlists, before.playlists); assert.deepEqual(after.queues, before.queues);
+  for (let i = 0; i < songs.length; i++) assert.deepEqual(await readFile(join(root, 'data/library', songs[i].managedPath)), originals[i]);
+  assert.deepEqual(errors, []); assert(savedQueue); checks.push('lyrics-only-hidden-scrollbars-keyboard-browse-return-edit-scrollbars-drafts-original-audio-lrc-notes-preserved');
+  await writeFile(join(out, 'results.json'), JSON.stringify({ root, checks, layouts, errors, productionDataUsed: false }, null, 2));
+});

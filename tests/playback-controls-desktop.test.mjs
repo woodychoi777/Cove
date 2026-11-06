@@ -1,0 +1,93 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { playableFlac } from './fixtures.mjs';
+
+test('패키징 Mac 앱 방향키와 Media Session 연결', { skip: !process.env.RUN_DESKTOP_TESTS, timeout: 90000 }, async t => {
+  const module = process.env.PLAYWRIGHT_MODULE, { _electron } = await import(module || 'playwright');
+  const { expect } = await import(module ? pathToFileURL(join(module,'..','test.mjs')).href : 'playwright/test');
+  const temp = await mkdtemp(join(tmpdir(),'cove-keys-native-'));
+  const launchOptions = { executablePath: resolve(process.env.COVE_TEST_APP || 'dist/Cove.app/Contents/MacOS/Cove'), args:['--mute-audio'], env:{...process.env,COVE_DATA_DIR:join(temp,'data'),COVE_PROFILE_DIR:join(temp,'profile')} };
+  let app = await _electron.launch(launchOptions);
+  t.after(()=>app.close()); let page=await app.firstWindow(); await page.waitForLoadState('domcontentloaded');
+  assert.equal(await page.locator('#main-content').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+  const url=new URL(page.url()).origin, ids=[];
+  for(let i=0;i<3;i++){
+    const staged=await(await page.request.post(url+'/api/stage',{headers:{'x-file-name':`${i}.flac`},data:playableFlac({title:`키 검사 ${i}`,seconds:30})})).json();
+    ids.push((await(await page.request.post(url+'/api/commit',{data:{importId:staged.importId}})).json()).id);
+  }
+  const state=await(await page.request.get(url+'/api/state')).json();
+  for(let i=1;i<=4;i++) await page.request.post(url+'/api/playlists',{headers:{'x-local-token':state.localToken},data:{name:`목록 ${i}`}});
+  await page.addInitScript(()=>{window.mediaActions={};const media=navigator.mediaSession,set=media.setActionHandler.bind(media);media.setActionHandler=(key,fn)=>{set(key,fn);window.mediaActions[key]=fn;};});
+  await page.reload(); await page.locator('.nav-button[data-route="library"]').click(); await page.locator(`[data-row-play="${ids[1]}"]`).click();
+  const command = (action, details={}) => app.evaluate(({BrowserWindow}, payload)=>BrowserWindow.getAllWindows()[0].webContents.send('media:action',payload),{action,...details});
+  const nativeStatus=()=>page.evaluate(()=>window.coveMedia.status());
+  const current=()=>page.evaluate(()=>{const q=JSON.parse(localStorage.getItem('soriseojae.queue'));return q.ids[q.index];});
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+  await page.locator('#playlist-tabs [role="tab"]').nth(2).focus();
+  await page.keyboard.press('Space'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await expect(page.locator('#collection-tab-all')).toHaveAttribute('aria-selected','true');
+  await page.keyboard.press('Space'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+  for(let i=1;i<=5;i++) {
+    await page.keyboard.press(`Control+${i}`);
+    await expect(page.locator('#playlist-tabs [role="tab"]').nth(i-1)).toHaveAttribute('aria-selected','true');
+  }
+  await page.keyboard.press('Control+1');
+  await page.locator('#main-content').click({position:{x:8,y:8}}); await page.keyboard.press('Space');
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  assert.equal(await page.locator('#main-content').evaluate(el=>getComputedStyle(el).outlineStyle),'none');
+  assert.equal(await page.locator('#main-content').evaluate(el=>getComputedStyle(el).scrollbarWidth),'none');
+  await page.keyboard.press('Space');
+  await page.locator('#library-grid').evaluate(el=>el.style.minHeight='2000px');
+  const sideTop=await page.locator('.sidebar').evaluate(el=>el.getBoundingClientRect().top);
+  await page.locator('#main-content').evaluate(el=>el.scrollTop=300);
+  assert((await page.locator('#main-content').evaluate(el=>el.scrollTop))>0);
+  assert.equal(await page.locator('.sidebar').evaluate(el=>el.getBoundingClientRect().top),sideTop);
+  await page.locator('#library-grid').evaluate(el=>el.style.minHeight='');
+  await page.locator('#main-content').evaluate(el=>el.scrollTop=0);
+  await page.evaluate(()=>document.activeElement.blur());
+  await page.keyboard.down('Space'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await page.keyboard.down('Space'); await page.keyboard.up('Space'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await page.keyboard.press('Space'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+  await page.locator('#search-input').fill('키'); await page.keyboard.press('Space'); await expect(page.locator('#search-input')).toHaveValue('키 ');
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지'); await page.locator('#search-input').fill(''); await page.evaluate(()=>document.activeElement.blur());
+  await page.keyboard.press('ArrowDown'); await expect(page.locator('#mini-volume-inline')).toHaveValue('0.75');
+  await page.keyboard.press('ArrowRight'); await expect.poll(current).toBe(ids[0]);
+  await page.keyboard.press('ArrowLeft'); await expect.poll(current).toBe(ids[1]);
+  await command('previoustrack'); await expect.poll(current).toBe(ids[2]);
+  await command('nexttrack'); await expect.poll(current).toBe(ids[1]);
+  assert.equal((await nativeStatus()).targets,11);
+  await expect.poll(async ()=>(await nativeStatus()).title).toBe('키 검사 1');
+  // Same registered handlers while window is hidden; this is not a Bluetooth hardware test.
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());
+  await command('pause');
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  const position=()=>page.locator('#mini-seek').evaluate(el=>Number(el.value));
+  await command('seekto',{seekTime:12}); await expect.poll(position).toBe(12);
+  await command('seekbackward',{seekOffset:5}); await expect.poll(position).toBe(7);
+  await command('seekforward',{seekOffset:4}); await expect.poll(position).toBe(11);
+  await command('stop'); await expect.poll(position).toBe(0);
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await command('play'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+  await command('pause');
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].show()); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await expect.poll(async ()=>(await nativeStatus()).state).toBe(2);
+  await page.evaluate(()=>document.activeElement.blur()); await page.keyboard.press('Enter');
+  await expect(page.locator('body')).toHaveAttribute('data-route','detail');
+  await expect(page.locator('#notes-form')).toHaveAttribute('data-track-id',String(ids[1]));
+  await page.keyboard.press('Escape'); await expect(page.locator('body')).toHaveAttribute('data-route','library');
+  await page.evaluate(()=>document.activeElement.blur()); await page.keyboard.press('Enter'); await expect(page.locator('body')).toHaveAttribute('data-route','detail');
+  await page.locator('#mini-play').focus(); await page.keyboard.press('Space');
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+  await page.keyboard.press('Space'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await app.close(); app=await _electron.launch(launchOptions); page=await app.firstWindow();
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  // Restored queue stays local until the user starts playback, matching 0.1.14.
+  await expect.poll(async ()=>(await nativeStatus())?.title).toBe('');
+  assert.equal(await page.evaluate(()=>typeof window.coveMedia.firstStatus),'undefined');
+  assert.equal(await page.locator('#headphone-first-open').count(),0);
+  await command('toggle'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+});

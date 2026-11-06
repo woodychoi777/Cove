@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { playableFlac } from './fixtures.mjs';
+
+test('packaged song screen: actual fullscreen, 200% keyboard actions and editor deletion access', { skip: !process.env.RUN_DESKTOP_TESTS, timeout: 60000 }, async t => {
+  const module = process.env.PLAYWRIGHT_MODULE || 'playwright', { _electron } = await import(module);
+  const { expect } = await import(module.startsWith('/') ? pathToFileURL(join(module,'..','test.mjs')).href : 'playwright/test');
+  const temp = await mkdtemp(join(tmpdir(),'cove-song-native-')), out = resolve(process.env.SONG_NATIVE_ARTIFACT_DIR || join(temp,'evidence')); await mkdir(out,{recursive:true});
+  const app = await _electron.launch({ executablePath:resolve(process.env.COVE_TEST_APP || 'dist/Cove.app/Contents/MacOS/Cove'), args:['--mute-audio'], env:{...process.env,COVE_DATA_DIR:join(temp,'data'),COVE_PROFILE_DIR:join(temp,'profile')} });
+  t.after(async()=>{await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().forEach(w=>w.destroy())).catch(()=>{});await app.close().catch(()=>{});});
+  const page = await app.firstWindow(), errors=[]; page.on('pageerror',e=>errors.push(e.message));
+  await expect(page.getByRole('heading',{name:'Today',exact:true})).toBeVisible();
+  const url = new URL(page.url()).origin;
+  const staged = await(await page.request.post(url+'/api/stage',{headers:{'x-file-name':'native.flac'},data:playableFlac({title:'넓은 화면 감상',artist:'Cove',seconds:12})})).json();
+  await page.request.post(url+'/api/commit',{data:{importId:staged.importId,metadata:{lrcText:'[00:00]첫 번째 가사\n[00:03]함께 듣는 음악\n[00:06]다음 줄의 가사\n[00:09]마지막 줄',lrcSourceName:'native.lrc'}}});
+  await page.reload(); await expect(page.locator('.today-recent')).toContainText('최근 7일');
+  await page.locator('.nav-button[data-route="library"]').click(); await page.locator('#library-grid [data-row-play]').first().click();
+  await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지'); await page.locator('#mini-play').click(); await page.locator('#mini-track').click();
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setFullScreen(true));
+  await expect.poll(()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(true);
+  const back=page.locator('[data-detail-back]'), heart=page.locator('[data-favorite]'), comment=page.locator('#detail-content [data-comments]'), edit=page.locator('#detail-content [data-edit-info]');
+  await expect.poll(()=>back.evaluate(el=>el.getBoundingClientRect().x<100)).toBe(true);
+  const wide=await page.evaluate(()=>({width:innerWidth,height:innerHeight,cover:document.querySelector('.detail-artwork .cover').getBoundingClientRect().width,font:parseFloat(getComputedStyle(document.querySelector('.lyric-original')).fontSize)}));
+  if(wide.width>=2500)assert(wide.cover>=700&&wide.font>=44);
+  await page.screenshot({path:join(out,'native-fullscreen.png')});
+  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setFullScreen(false);w.webContents.setZoomFactor(2);});
+  await expect.poll(()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(false);
+  await expect.poll(()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.getZoomFactor())).toBe(2);
+  await back.focus(); await page.keyboard.press('Tab'); await expect(heart).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(comment).toBeFocused(); await page.keyboard.press('Tab'); await expect(edit).toBeFocused();
+  for(const control of [back,heart,comment,edit]) {
+    await control.focus();
+    assert(await control.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=5&&r.top>=1&&r.right<=innerWidth-5&&r.bottom<document.querySelector('#mini-player').getBoundingClientRect().top-5;}));
+  }
+  await page.keyboard.press('Enter'); await expect(page.locator('#track-info-dialog')).toBeVisible();
+  await page.locator('#track-info-delete').focus(); await expect(page.locator('#track-info-delete')).toBeInViewport();
+  await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
+  await writeFile(join(out,'native-200-editor.png'),Buffer.from(await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')),'base64'));
+  await page.keyboard.press('Escape'); await expect(edit).toBeFocused();
+  await comment.click();await expect(page.locator('#comments-dialog')).toBeVisible();
+  await expect(page.locator('#comments-dialog')).toHaveAttribute('popover','auto');
+  await page.locator('#comment-text').fill('실제 200%에서도 유지되는 코멘트 초안');
+  await expect.poll(()=>page.locator('#comments-dialog').evaluate(el=>{const r=el.getBoundingClientRect(),p=document.querySelector('#mini-player').getBoundingClientRect();return r.width<=341&&r.left>=8&&r.right<=innerWidth-8&&r.top>=8&&r.bottom<=p.top-5;})).toBe(true);
+  await writeFile(join(out,'native-200-comment-popover.png'),Buffer.from(await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].webContents.capturePage()).toPNG().toString('base64')),'base64'));
+  await page.locator('#comments-dialog [data-dialog-close]').click();await expect(comment).toBeFocused();
+  await comment.click();await expect(page.locator('#comment-text')).toHaveValue('실제 200%에서도 유지되는 코멘트 초안');await page.keyboard.press('Escape');
+  assert.deepEqual(errors,[]); await writeFile(join(out,'results.json'),JSON.stringify({wide,zoom:2,errors,temp,checks:['fullscreen scales cover and lyrics','back at screen inset','Tab heart-comment-editor','200% visible toolbar and delete','Escape restores editor button']},null,2));
+});

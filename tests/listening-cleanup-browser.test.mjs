@@ -1,0 +1,122 @@
+import { ensureLyricsEditing, navigateTo, lyricsViewportFits, toggleManage, openComments, songMenu, openCollectionSong } from './song-ui.mjs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { playableFlac } from './fixtures.mjs';
+
+test('감상 정돈: 제목 전용 저장·실패·지연·보존, 미상 표시, 단일 헤더와 가사 가용 영역', { skip: !process.env.RUN_BROWSER_TESTS, timeout: 150000 }, async t => {
+  const module = process.env.PLAYWRIGHT_MODULE || 'playwright';
+  const { chromium } = await import(module), { expect } = await import(module.startsWith('/') ? pathToFileURL(join(module, '..', 'test.mjs')).href : 'playwright/test');
+  const root = await mkdtemp(join(tmpdir(), 'soriseojae-cleanup-')), out = resolve(process.env.CLEANUP_ARTIFACT_DIR || join(root, 'artifacts'));
+  await mkdir(out, { recursive: true });
+  const url = 'http://127.0.0.1:28317'; let server;
+  const startServer = async () => {
+    let stderr = ''; server = spawn(process.execPath, ['src/server.mjs'], { env: { ...process.env, PORT: '28317', SORISEOJAE_DATA_DIR: join(root, 'data') }, stdio: ['ignore', 'pipe', 'pipe'] });
+    server.stderr.on('data', chunk => stderr += chunk);
+    await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error(stderr || '서버 시작 시간 초과')), 10000); server.stdout.on('data', chunk => { if (String(chunk).includes('프로토타입:')) { clearTimeout(timer); resolve(); } }); server.on('exit', code => { clearTimeout(timer); reject(new Error(`서버 종료 ${code}: ${stderr}`)); }); });
+  };
+  await startServer(); t.after(() => server.kill('SIGTERM'));
+  const lyrics = Array.from({ length: 40 }, (_, i) => `[00:${String(i).padStart(2,'0')}]가사 ${i + 1} · 넓은 화면에서 읽는 원문`).join('\n');
+  const tracks = [], originals = [];
+  for (const [i, meta] of [{ title: '이름 수정 전', artist: '', album: '' }, { title: '다른 곡', artist: 'Unknown Machines', album: 'Unknown Album' }, { title: '실제 이름', artist: '알 수 없는 아티스트의 노래', album: '알 수 없는 앨범의 노래' }].entries()) {
+    const body = playableFlac({ ...meta, seconds: 60, frequency: 330 + i * 110 }); originals.push(body);
+    const staged = await (await fetch(url + '/api/stage', { method: 'POST', headers: { 'x-file-name': `${i}.flac` }, body })).json();
+    tracks.push(await (await fetch(url + '/api/commit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ importId: staged.importId, metadata: { lrcText: lyrics, lrcSourceName: `${i}.lrc`, lyricsTranslation: '번역' } }) })).json());
+  }
+  const [a, b] = tracks, get = async id => (await fetch(`${url}/api/tracks/${id}`)).json();
+  const originalA = await get(a.id), initialState = await (await fetch(url + '/api/state')).json();
+  const put = (id, title, token = initialState.localToken, origin = url) => fetch(`${url}/api/tracks/${id}/title`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-local-token': token, Origin: origin }, body: JSON.stringify({ title }) });
+  assert.equal((await put(a.id, '권한 없음', 'bad')).status, 403); assert.equal((await put(a.id, '다른 출처', initialState.localToken, 'https://example.com')).status, 403);
+  for (const title of ['', '  ', 42, 'x'.repeat(301)]) assert.equal((await put(a.id, title)).status, 400);
+  assert.equal((await put(99999, '없는 곡')).status, 404);
+  const browser = await chromium.launch({ headless: true, channel: 'chrome' }), page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' });
+  const errors = [], checks = [], geometry = []; page.on('pageerror', error => errors.push(error.message));
+  t.after(async () => { await page.screenshot({ path: join(out,'last-state.png'), fullPage: true }).catch(() => {}); await browser.close(); });
+  const nav = route => route === 'queue' ? page.locator('#queue-open').click() : navigateTo(page, route);
+  const open = async id => { await nav('library'); await openCollectionSong(page, id); };
+  const titleInput = page.locator('#title-form input'), titleSave = page.locator('#title-form .primary-button');
+  const editDetail = async () => { await page.locator('#detail-content [data-more]').click(); await page.locator('.song-menu:popover-open [data-edit-title]').click(); };
+  const queue = () => page.evaluate(() => JSON.parse(localStorage.getItem('soriseojae.queue')));
+  await page.goto(url); await nav('library');
+  const unknownRow = page.locator(`#library-grid [data-current-id="${a.id}"]`);
+  await expect(unknownRow).not.toContainText('알 수 없는'); assert.equal((await unknownRow.locator('small').textContent()).trim(), '');
+  await expect(page.locator(`#library-grid [data-current-id="${b.id}"]`)).toContainText('Unknown Machines');
+  await open(a.id); await expect(page.locator('[data-detail-artist]')).toBeHidden();
+  assert.equal(await page.locator('#route-caption, .app-mode-bar, #mini-source, [data-skip], [data-detail-tab="file"], [data-detail-panel="file"]').count(), 0);
+  await expect(page.getByRole('tab')).toHaveCount(0);
+  await editDetail(); await titleInput.fill('취소할 이름'); await page.getByRole('button', { name: '취소', exact: true }).click(); await expect(page.locator('#detail-content [data-more]')).toBeFocused();
+  assert.equal((await get(a.id)).title, originalA.title);
+  await editDetail(); await titleInput.fill('  '); await titleSave.click(); await expect(page.locator('#title-error')).toBeVisible();
+  assert.equal((await get(a.id)).title, originalA.title);
+  await titleInput.fill('실패 뒤 유지할 입력'); await page.route(`**/api/tracks/${a.id}/title`, route => route.fulfill({ status: 500, json: { error: '제목 검사 저장 실패' } }));
+  await titleSave.click(); await expect(page.locator('#title-error')).toHaveText('제목 검사 저장 실패'); await expect(titleInput).toHaveValue('실패 뒤 유지할 입력'); await expect(page.locator('[data-detail-title]')).toHaveText(originalA.title);
+  await page.unroute(`**/api/tracks/${a.id}/title`); await page.keyboard.press('Escape');
+  await toggleManage(page); 
+  await ensureLyricsEditing(page); await page.getByLabel('한국어 번역').fill('제목 수정 중 최신 초안');
+  await page.evaluate(() => { window.__cleanupForm = document.querySelector('#notes-form'); });
+  const renamed = '<img src=x onerror=alert(1)> 새 이름';
+  await editDetail(); await titleInput.fill(`  ${renamed}  `); await titleSave.click(); await expect(page.locator('#title-dialog')).not.toBeVisible();
+  await expect(page.locator('[data-detail-title]')).toHaveText(renamed); await expect(page.getByLabel('한국어 번역')).toHaveValue('제목 수정 중 최신 초안');
+  assert.equal(await page.evaluate(() => window.__cleanupForm === document.querySelector('#notes-form')), true);
+  assert.equal(await page.locator('[data-detail-title] img').count(), 0);
+  // A pending title save may be closed; its late reply must patch A only.
+  let held = false, release, calls = 0;
+  await page.route(`**/api/tracks/${a.id}/title`, async route => { calls++; const response = await route.fetch(); held = true; await new Promise(resolve => release = resolve); await route.fulfill({ response }); });
+  await editDetail(); await titleInput.fill('지연 응답 A'); await titleSave.click(); await expect.poll(() => held).toBe(true); await expect(titleSave).toBeDisabled();
+  await page.keyboard.press('Enter'); assert.equal(calls, 1); await page.keyboard.press('Escape');
+  await open(b.id);  await ensureLyricsEditing(page); await page.getByLabel('한국어 번역').fill('다른 곡 최신 초안');
+  release(); await expect.poll(async () => (await get(a.id)).title).toBe('지연 응답 A'); await expect(page.locator('#title-form .primary-button')).toBeEnabled(); await page.unroute(`**/api/tracks/${a.id}/title`);
+  await expect(page.locator('[data-detail-title]')).toHaveText(b.title); await expect(page.getByLabel('한국어 번역')).toHaveValue('다른 곡 최신 초안');
+  await open(a.id);  await expect(page.getByLabel('한국어 번역')).toHaveValue('제목 수정 중 최신 초안');
+  await ensureLyricsEditing(page); await page.getByRole('button',{name:'가사 저장',exact:true}).click(); await expect(page.locator('[data-detail-draft]')).toBeHidden();
+  await open(b.id);  await ensureLyricsEditing(page); await page.getByRole('button',{name:'가사 저장',exact:true}).click(); await expect(page.locator('[data-detail-draft]')).toBeHidden();
+  // Rename from the detail menu; same names are permitted.
+  await toggleManage(page); await nav('library');
+  await openCollectionSong(page,b.id); await editDetail();
+  await titleInput.fill('지연 응답 A'); await titleSave.click(); await expect(page.locator('#title-dialog')).not.toBeVisible(); assert.equal((await get(b.id)).title, '지연 응답 A');
+  await nav('library'); await page.locator('#search-input').fill('지연 응답 A'); await expect(page.locator('#library-grid [data-row-play]')).toHaveCount(2);
+  await page.locator(`#library-grid [data-row-play="${a.id}"]`).click(); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');
+  const activeQueue = await queue(); await page.locator('#mini-shuffle').click(); await page.locator('#mini-repeat').click(); await expect(page.locator('#mini-track')).toContainText('지연 응답 A');
+  await page.locator('#mini-play').click(); await nav('queue'); await expect(page.locator('#queue-list')).toContainText('지연 응답 A'); assert.deepEqual((await queue()).ids, activeQueue.ids);
+  const beforeRestart = await get(a.id), exportBefore = await (await fetch(url+'/api/export')).json();
+  assert.equal(exportBefore.tracks.find(row => row.id === a.id).title,'지연 응답 A');
+  await new Promise(resolve => { server.once('exit', resolve); server.kill('SIGTERM'); }); await startServer();
+  await page.reload(); assert.equal((await get(a.id)).title,'지연 응답 A'); await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','재생');
+  await expect(page.locator('#mini-shuffle')).toHaveAttribute('aria-pressed','true'); await expect(page.locator('#mini-repeat')).toHaveAttribute('aria-label','반복: 전체');
+  assert.equal((await get(a.id)).lyricsTranslation, '제목 수정 중 최신 초안');
+  for (const key of ['managedPath','originalName','checksum','albumId','artistId','lyricsFilePath','lyricsOriginal']) assert.equal(beforeRestart[key], originalA[key]);
+  checks.push('title-auth-validation-cancel-failure-safe-text-live-form-late-response-duplicate-name-all-views-and-restart');
+  for (const route of ['home','library','queue']) {
+    await nav(route); await expect(page.locator('.view.is-visible h1')).toHaveCount(1); if (route === 'home') await expect(page.locator('#settings-open')).toBeHidden(); else await expect(page.locator('.view.is-visible #settings-open')).toBeVisible();
+  }
+  await nav('library'); await page.locator('#collection-add').click(); await expect(page.locator('.view.is-visible h1')).toHaveCount(1); await expect(page.locator('.view.is-visible #settings-open')).toBeVisible();
+  await page.locator('#file-input').setInputFiles({ name:'missing.flac', mimeType:'audio/flac', buffer:playableFlac({title:'미상 가져오기',artist:'',album:'',seconds:1,frequency:770}) });
+  await expect(page.locator('#batch-list')).not.toContainText('알 수 없는'); await page.getByRole('button',{name:'1곡 복사하여 추가',exact:true}).click(); await expect(page.locator('#import-complete')).toBeVisible();
+  const state = await (await fetch(url+'/api/state')).json(), imported = state.tracks.find(row => row.title==='미상 가져오기'); assert.equal(imported.artist,'알 수 없는 아티스트'); assert.equal(imported.album,'알 수 없는 앨범');
+  await page.locator('#settings-open').click(); await expect(page.getByRole('link',{name:'기록 내보내기(JSON)',exact:true})).toBeVisible(); await page.keyboard.press('Escape');
+  await toggleManage(page,false);
+  checks.push('single-page-headings-settings-and-unknown-display-only-import');
+  await nav('library'); await page.locator(`#library-grid [data-row-play="${a.id}"]`).click(); await page.locator('#mini-play').click(); await open(a.id);
+  for (const viewport of [{width:1440,height:1100},{width:390,height:844},{width:320,height:700},{width:720,height:480}]) {
+    await page.setViewportSize(viewport);
+    await expect.poll(async () => lyricsViewportFits(page)).toBe(true);
+    const box = await page.locator('[data-lyrics-lines]').evaluate(el=>{const r=el.getBoundingClientRect(),style=getComputedStyle(el);return {x:r.x,y:r.y,width:r.width,height:r.height,padding:style.paddingTop,maxWidth:style.maxWidth,viewport:[innerWidth,innerHeight]};}); geometry.push(box);
+    const stacked = await page.locator('.detail-stage').evaluate(el=>getComputedStyle(el).getPropertyValue('--stacked').trim()==='1');
+    assert.ok(box.width >= (stacked ? viewport.width-(viewport.width>760?260:40) : 400)); assert.ok(box.height>=48); assert.ok(box.height<=440);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.locator('[data-lyrics-lines]').press('End'); await expect(page.locator('[data-lyrics-lines]')).toHaveAttribute('data-follow','false');
+    await expect.poll(() => page.locator('[data-lyrics-lines]').evaluate(el => Math.abs(el.scrollTop - (el.scrollHeight - el.clientHeight)))).toBeLessThan(3);
+    const manual = await page.locator('[data-lyrics-lines]').evaluate(el=>el.scrollTop);   assert.equal(await page.locator('[data-lyrics-lines]').evaluate(el=>el.scrollTop),manual);
+    await page.locator('[data-lyrics-follow]').press('Enter'); await expect(page.locator('[data-lyrics-lines]')).toBeFocused(); await expect(page.locator('[data-lyrics-follow]')).toBeHidden();
+    await page.screenshot({path:join(out,`lyrics-${viewport.width}.png`),fullPage:true});
+  }
+  await page.emulateMedia({reducedMotion:'reduce'}); assert.equal(await page.locator('.lyric-original').first().evaluate(el=>parseFloat(getComputedStyle(el).transitionDuration)),0);
+  for(let i=0;i<tracks.length;i++) assert.deepEqual(await readFile(join(root,'data/library',tracks[i].managedPath)),originals[i]);
+  const after = await get(a.id); assert.equal(await readFile(join(root,'data/library',after.lyricsFilePath),'utf8'),lyrics);
+  assert.deepEqual(errors,[]); checks.push('full-width-available-height-short-window-manual-browse-tab-return-reduce-and-file-preservation');
+  await writeFile(join(out,'results.json'),JSON.stringify({root,checks,geometry,errors},null,2));
+});
