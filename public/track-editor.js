@@ -36,7 +36,7 @@ export function setupTrackEditor({ getToken, onSaved, onDelete, toast }) {
     imageInfo.textContent = file ? file.name : t('JPG · PNG · WebP / 최대 10 MB');
     undoImage.hidden = !file;
     const album = track?.album;
-    scope.textContent = album && album !== t('알 수 없는 앨범') ? t("{0} 앨범의 곡에 함께 적용됩니다.", album) : t('이 곡에 적용됩니다.');
+    scope.textContent = album && album !== '알 수 없는 앨범' ? t("{0} 앨범의 곡에 함께 적용됩니다.", album) : t('이 곡에 적용됩니다.');
   }
   function capture() { if (!loading && drafts.records.has(id)) drafts.update(id, inputValues()); update(); }
   async function open(trackId, trigger, focus = 'title') {
