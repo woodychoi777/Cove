@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Cove</title>
+  <meta name="application-name" content="Cove">
+  <meta name="apple-mobile-web-app-title" content="Cove">
+  <meta name="theme-color" content="#fafafa">
+  <link rel="icon" type="image/svg+xml" href="/icons/soriseojae-mark-v4.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/soriseojae-favicon-v4.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/soriseojae-apple-v4.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/archive.css">
+</head>
+<body data-route="home">
+  <a class="skip-link" href="#main-content">본문으로 이동</a>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span data-icon="cove-brand"></span> Cove</div>
+      <nav aria-label="주요 화면">
+        <button class="nav-button is-active" data-route="home" aria-current="page"><span data-icon="sun"></span> Today</button>
+        <button class="nav-button" data-route="library"><span data-icon="library"></span> Collection</button>
+        <button type="button" class="nav-button" id="collection-add" data-route="import"><span data-icon="plus"></span> 음악 추가</button>
+      </nav>
+      <div class="sidebar-settings top-tools"><button type="button" class="nav-button" id="settings-open" aria-label="설정" title="설정"><span data-icon="settings-2"></span> 설정</button></div>
+    </aside>
+
+    <main class="main-content" id="main-content" tabindex="-1">
+
+      <section class="view is-visible" data-view="home">
+        <header class="page-header">
+          <div><h1>Today</h1></div>
+        </header>
+        <div id="home-empty" class="empty-state">
+          <div class="empty-record" data-icon="disc"></div>
+          <h2>아직 소장한 음악이 없어요</h2>
+          <p>폴더나 파일을 골라 나의 음악 서재를 시작하세요.</p>
+          <button class="primary-button" data-route="import">음악 추가</button>
+        </div>
+        <div id="home-content">
+          <div class="today-columns">
+            <div class="today-recommendations">
+              <section class="today-favorites" aria-labelledby="favorites-heading">
+                <div class="section-heading"><h2 id="favorites-heading" tabindex="-1">나의 최애곡</h2></div>
+                <div id="favorites-list" class="recommendation-grid"></div>
+              </section>
+              <section class="today-rediscovery" aria-labelledby="rediscovery-heading" hidden>
+                <div class="section-heading"><h2 id="rediscovery-heading" tabindex="-1">오랜만에 꺼내는 곡</h2></div>
+                <div id="rediscovery-list" class="recommendation-grid"></div>
+              </section>
+            </div>
+            <section class="today-recent" aria-labelledby="recent-listening-heading">
+              <div class="section-heading"><h2 id="recent-listening-heading">최근 많이 들은 곡</h2><span class="section-description">최근 7일</span></div>
+              <div id="recent-listening-list" class="listening-list"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" data-view="library">
+        <header class="page-header">
+          <div><h1>Collection</h1></div>
+          <label class="search-label collection-search"><span data-icon="search"></span><span class="sr-only">음악 검색</span><input id="search-input" type="search" placeholder="곡, 아티스트, 앨범 검색"></label>
+          <div class="collection-tools"></div>
+        </header>
+        <p class="sr-only" id="playlist-menu-help">플레이리스트 메뉴: 우클릭, Shift+F10 또는 길게 누르기</p>
+        <div class="collection-toolbar">
+          <div id="playlist-tabs" class="playlist-tabs" role="tablist" aria-label="음악 목록"><button type="button" role="tab" id="collection-tab-all" data-playlist-id="" aria-selected="true" aria-controls="collection-panel" tabindex="0">전체 음악</button></div>
+          <div class="playlist-actions"><button type="button" class="text-button" id="playlist-create"><span data-icon="plus"></span> 새 플레이리스트</button><button type="button" class="icon-button" id="playlist-add" aria-label="플레이리스트에 곡 추가" title="곡 담기" hidden><span data-icon="plus"></span><span>곡 담기</span></button><div id="playlist-menu" class="song-menu" popover="auto" aria-label="플레이리스트 메뉴"><button type="button" id="playlist-rename">이름 변경</button><button type="button" id="playlist-edit">순서 편집</button><button type="button" id="playlist-delete">플레이리스트 삭제</button></div></div>
+
+        </div>
+        <div id="collection-panel" role="tabpanel" aria-labelledby="collection-tab-all">
+        <div id="playlist-edit-bar" class="playlist-edit-bar" hidden><span>순서 편집 중</span><div><button type="button" class="secondary-button" id="playlist-edit-cancel">취소</button><button type="button" class="primary-button" id="playlist-edit-save">완료</button></div></div>
+        <div id="playlist-notice" role="alert" hidden><p class="error-message"></p><button type="button" class="secondary-button" id="playlist-reload">최신 목록으로 다시 시작</button></div>
+        <span id="collection-results" class="sr-only"></span><p class="sr-only" id="collection-menu-help">곡 메뉴: 우클릭, Shift+F10 또는 길게 누르기</p><div class="collection-list" id="library-grid"></div>
+        <div id="library-empty" class="empty-state compact"><h2>소장한 음악이 없습니다</h2><p>폴더나 파일에서 음악을 추가해 보세요.</p><button type="button" class="secondary-button" id="empty-playlist-add" hidden>곡 담기</button><button class="secondary-button" data-route="import" id="library-empty-add">음악 추가</button><button class="secondary-button" id="clear-search" hidden>검색 지우기</button></div>
+        </div>
+      </section>
+
+      <section class="view" data-view="import">
+        <header class="page-header"><div><h1>음악 추가</h1><p>원본을 남기고 서재에 복사합니다. 가사와 표지는 나중에 더해도 됩니다.</p></div></header>
+        <details class="import-storage"><summary>어디에 보관되나요?</summary><p id="import-library-path"></p><p>library / 음악 / 가수 / 연도 - 앨범 / 01 - 곡명.flac</p><p>원래 폴더 구성과 관계없이 태그를 기준으로 정리합니다. 이름이 겹치면 번호를 붙이고, 가사와 표지는 음악 옆에 보관합니다.</p></details>
+        <ol class="steps" aria-label="가져오기 단계">
+          <li class="is-current" data-step="1"><span>1</span> 파일 선택</li>
+          <li data-step="2"><span>2</span> 음악 추가</li>
+          <li data-step="3"><span>3</span> 소장 완료</li>
+        </ol>
+        <div id="import-error" class="error-message" role="alert" hidden></div>
+        <div id="import-select" class="import-panel">
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-icon" data-icon="folder"></div>
+            <h2>음악 파일을 여기에 놓으세요</h2>
+            <p>여러 곡을 한 번에 넣어도 됩니다. 폴더 형식은 자유롭고, 하위 폴더도 함께 읽습니다.</p>
+            <p class="section-description">FLAC · ALAC · M4A · MP3 · AAC · Ogg · UTF-8 LRC</p>
+            <div class="picker-actions">
+              <button type="button" class="primary-button" id="choose-folder"><span data-icon="folder"></span> 폴더 선택</button>
+              <button type="button" class="secondary-button" id="choose-files"><span data-icon="file-text"></span> 파일 선택</button>
+              <input id="folder-input" type="file" webkitdirectory multiple hidden>
+              <input id="file-input" type="file" accept=".flac,.alac,.m4a,.mp3,.aac,.ogg,.lrc" multiple hidden>
+            </div>
+            <label class="import-review-option"><input type="checkbox" id="import-review-first"> 곡 정보 확인 후 추가</label><p class="section-description">기본은 바로 복사해 추가합니다. 곡명·가수명은 나중에도 수정할 수 있습니다.</p>
+          </div>
+          <div id="stage-progress" class="progress-area" role="status" hidden>
+            <div class="progress-copy"><span id="progress-name">파일 확인 중</span><span id="progress-value">0%</span></div>
+            <progress id="upload-progress" max="100" value="0"></progress>
+          </div>
+        </div>
+        <form id="batch-form" class="import-panel" hidden>
+          <div class="batch-heading"><div><h2 id="review-summary">소장할 음악 확인</h2><p id="review-detail"></p></div></div>
+          <div id="review-exclusions"></div><div class="batch-list" id="batch-list"></div>
+          <p id="move-review-notice" class="move-notice" hidden>아래 버튼을 누르면 표시된 음원·연결된 LRC를 라이브러리에 보관하고 검증 후 원본을 제거합니다. 이동한 파일은 라이브러리 폴더에서 찾을 수 있습니다.</p>
+          <p id="import-save-status" role="status" hidden></p><div class="form-actions"><button type="button" class="secondary-button" id="cancel-import">취소</button><button class="primary-button" id="commit-import">복사하여 추가</button></div>
+        </form>
+        <div id="import-complete" class="import-panel complete-panel" hidden>
+          <div class="complete-mark" data-icon="check"></div><h2>소장을 완료했습니다</h2>
+          <p id="complete-copy" role="status"></p><ul id="complete-tracks" class="result-list"></ul>
+          <div id="uncertain-imports" class="notice-message" role="status" hidden></div><div id="preservation-warnings" class="notice-message" role="status" hidden></div><div id="complete-warnings" class="error-message" role="alert" hidden></div><button type="button" class="secondary-button" id="review-failed" hidden>미완료 파일 다시 확인</button>
+          <div class="form-actions center"><button class="secondary-button" id="import-another">더 추가하기</button><button class="secondary-button" id="open-imported">Collection 보기</button><button class="primary-button" id="play-imported">추가한 곡 듣기</button></div>
+        </div>
+      </section>
+
+      <section class="view" data-view="detail">
+        <header class="detail-navigation"><button class="back-button" data-detail-back><span data-icon="arrow-left"></span><span data-detail-back-label>Collection</span></button></header>
+        <div id="detail-content"></div>
+      </section>
+
+    </main>
+  </div>
+  <aside id="mini-player" class="mini-player" aria-label="공통 음악 플레이어" hidden>
+    <button id="mini-track" class="mini-track" aria-label="현재 곡 열기"></button>
+    <div class="mini-center"><div class="mini-transport"><button type="button" class="icon-button playback-mode" id="mini-shuffle" aria-label="셔플: 끔" aria-pressed="false" title="셔플: 끔"><span data-icon="shuffle"></span></button><button type="button" class="icon-button" id="mini-prev" aria-label="이전 곡" aria-keyshortcuts="ArrowLeft" title="이전 곡 (←)"><span data-icon="skip-back"></span></button><button type="button" class="icon-button play-large" id="mini-play" aria-label="재생" aria-keyshortcuts="Space" title="재생 (Space)"><span data-icon="play"></span></button><button type="button" class="icon-button" id="mini-next" aria-label="다음 곡" aria-keyshortcuts="ArrowRight" title="다음 곡 (→)"><span data-icon="skip-forward"></span></button><button type="button" class="icon-button playback-mode" id="mini-repeat" aria-label="반복: 끔" aria-pressed="false" title="반복: 끔"><span data-icon="repeat"></span></button></div>
+    <div class="mini-timeline"><span id="mini-elapsed" class="player-time" aria-hidden="true">0:00</span><input id="mini-seek" class="seek-range" type="range" min="0" max="1" step="0.1" value="0" aria-label="현재 곡 재생 위치"><span id="mini-time" class="player-time" aria-hidden="true">0:00</span></div></div>
+    <div class="mini-end"><div id="mini-status-row" class="mini-error-slot"><button class="icon-button" id="playback-error-open" aria-label="재생 문제 · 자세히 및 다시 시도" title="재생 문제 · 다시 시도" aria-haspopup="dialog" hidden><span data-icon="alert"></span></button></div><button class="icon-button" id="volume-open" aria-label="음소거" title="음소거" aria-pressed="false"><span data-icon="volume-2"></span></button><input id="mini-volume-inline" class="desktop-volume" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="음량" aria-keyshortcuts="ArrowUp ArrowDown" title="음량 (↑ ↓)"></div>
+  </aside>
+  <div id="queue-dock"><button type="button" class="icon-button" id="queue-open" aria-label="대기열 열기" title="대기열 열기" aria-expanded="false" aria-controls="queue-panel" aria-haspopup="dialog"><span data-icon="list-music"></span></button></div>
+  <section id="queue-panel" class="queue-panel" popover="manual" role="dialog" aria-labelledby="queue-title">
+    <header class="queue-header"><h2 id="queue-title">대기열</h2><button type="button" class="icon-button" id="queue-close" aria-label="대기열 닫기" title="닫기"><span data-icon="x"></span></button></header>
+    <div class="queue-body">
+      <p class="section-description" id="queue-order-summary"></p>
+      <div class="listening-list" id="queue-list"></div>
+      <details id="queue-extras" class="queue-extras"><summary>설정과 저장한 대기열</summary>
+        <details class="queue-settings"><summary>곡 사이 전환</summary><label>곡 사이 전환 <select id="transition-setting"><option value="0">무음 없는 연결</option><option value="2">크로스페이드 2초</option><option value="4">크로스페이드 4초</option><option value="6">크로스페이드 6초</option></select></label><p>다음 곡을 미리 준비해 연결합니다. 파일 자체의 앞뒤 무음은 유지됩니다.</p></details>
+        <button type="button" class="secondary-button" id="queue-save-open"><span data-icon="plus"></span> 대기열 저장</button>
+        <div class="section-heading"><h3>저장한 대기열</h3></div><div id="saved-queues" class="listening-list"></div>
+      </details>
+    </div>
+  </section>
+  <dialog id="delete-track-dialog" aria-labelledby="delete-track-heading">
+    <h2 id="delete-track-heading">곡을 삭제할까요?</h2>
+    <p id="delete-track-title"></p>
+    <p>Cove에 보관된 음원 파일과 이 곡의 기록이 영구 삭제됩니다. 플레이리스트에서도 빠지며, 되돌릴 수 없습니다.</p>
+    <p class="delete-track-path" id="delete-track-path"></p>
+    <p>가져오기 전 원본 파일과 앨범 사진·가사 파일은 유지합니다.</p>
+    <p id="delete-track-error" class="error-message" role="alert" hidden></p>
+    <div class="form-actions"><button type="button" class="secondary-button" data-dialog-close autofocus>취소</button><button type="button" class="primary-button danger-button" id="delete-track-confirm">파일과 곡 삭제</button></div>
+  </dialog>
+  <div id="comments-dialog" class="comments-popover" popover="auto" role="dialog" aria-modal="false" aria-labelledby="comments-heading">
+    <header class="comments-heading"><h2 id="comments-heading">코멘트</h2><button type="button" class="icon-button" data-dialog-close aria-label="코멘트 닫기" title="닫기"><span data-icon="x"></span></button></header>
+    <p id="comments-track-title"></p>
+    <form id="comments-form"><label class="sr-only" for="comment-text">자유기록</label><textarea id="comment-text" name="comment" placeholder="이 곡에 남기고 싶은 이야기"></textarea>
+      <p id="comments-draft" class="section-description" role="status" hidden>저장하지 않은 변경사항</p>
+      <p id="comments-error" class="error-message" role="alert" hidden></p>
+      <div class="form-actions"><button class="primary-button">코멘트 저장</button></div>
+    </form>
+  </div>
+  <dialog id="track-info-dialog" aria-labelledby="track-info-heading">
+    <h2 id="track-info-heading">곡 정보 편집</h2>
+    <form id="track-info-form" novalidate>
+      <div class="track-info-overview">
+        <div class="track-info-artwork">
+          <div id="track-info-cover" class="track-info-cover"></div>
+          <label class="secondary-button file-button">사진 선택<input id="track-info-image" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"></label>
+          <button type="button" class="text-button" id="track-info-image-undo" hidden>선택 취소</button>
+        </div>
+        <div class="track-info-identity">
+          <label>곡 이름<input name="title" maxlength="300" required autocomplete="off"></label>
+          <label>가수명<input name="artist" maxlength="300" autocomplete="off" placeholder="가수명"></label>
+          <p id="track-info-image-info" class="section-description"></p>
+          <p id="track-info-image-scope" class="section-description"></p>
+        </div>
+      </div>
+      <div class="track-info-lyrics">
+        <label>원문 가사<textarea name="lyricsOriginal" rows="7" placeholder="가사 또는 LRC를 입력하세요"></textarea></label>
+        <label>번역<textarea name="lyricsTranslation" rows="7" placeholder="원문과 줄 수를 맞추거나 LRC로 입력하세요"></textarea></label>
+      </div>
+      <p id="track-info-draft" class="section-description" role="status" hidden>저장하지 않은 변경사항</p>
+      <p id="track-info-error" class="error-message" role="alert" hidden></p>
+      <div class="form-actions track-info-actions"><button class="text-button danger-action" type="button" id="track-info-delete" data-delete-track disabled>곡 삭제</button><button class="secondary-button" type="button" data-dialog-close>닫기</button><button class="primary-button">저장</button></div>
+    </form>
+  </dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <header class="dialog-heading"><h2 id="settings-title">설정</h2><button type="button" class="icon-button" data-dialog-close aria-label="설정 닫기" title="닫기"><span data-icon="x"></span></button></header>
+    <div class="settings-body">
+      <section class="settings-section settings-appearance" aria-labelledby="appearance-heading"><h3 id="appearance-heading">화면</h3>
+        <div class="setting-row"><label for="theme-setting">밝기</label><select id="theme-setting"><option value="system">시스템 설정</option><option value="light">밝게</option><option value="dark">어둡게</option></select></div>
+      </section>
+      <section class="settings-section settings-alarm" id="alarm-settings-section" hidden><h3>알람</h3><button type="button" class="secondary-button setting-action" id="alarm-open" hidden><span data-icon="sun"></span> 알람 설정</button></section>
+      <section class="settings-section settings-auto" aria-labelledby="auto-import-heading"><h3 id="auto-import-heading">자동 추가</h3><p class="auto-import-how">지정한 폴더에 음악 파일을 넣으면 됩니다. 가수별 폴더 없이도 파일의 태그를 읽고, 하위 폴더도 확인합니다.</p>
+        <div class="setting-row auto-import-setting"><div class="setting-copy"><label for="auto-import-toggle">폴더에서 음악 가져오기</label><p id="auto-import-setting-help">폴더와 하위 폴더의 음악을 서재에 복사합니다.</p></div><input id="auto-import-toggle" class="setting-switch" type="checkbox" role="switch" aria-describedby="auto-import-setting-help" disabled></div>
+        <p id="auto-import-directory" class="folder-path">감지 폴더를 지정해 주세요.</p>
+        <div class="setting-actions"><button type="button" class="secondary-button" id="auto-import-folder-choose">폴더 지정</button><button type="button" class="text-button" id="auto-import-folder-open" hidden>지정 폴더 열기</button><button type="button" class="text-button" id="auto-import-retry" hidden>다시 확인</button></div>
+        <div id="auto-import-browser-folder" hidden><label>감지 폴더 전체 경로<input id="auto-import-path" placeholder="음악을 가져올 전용 폴더"></label><button type="button" class="secondary-button" id="auto-import-path-check">폴더 확인</button></div>
+        <details class="auto-import-advanced"><summary>가져오기 방식</summary><label>원본 파일<select id="auto-import-mode"><option value="copy">복사 · 원본 유지</option><option value="move">이동 · 검증 후 원본 제거</option></select></label><p>이동은 보관본과 연결 가사를 검증한 뒤 원본을 제거합니다.</p></details>
+        <section id="auto-import-preview" class="folder-preview" aria-labelledby="auto-import-preview-title" hidden><h4 id="auto-import-preview-title">이 폴더에서 자동 추가할까요?</h4><p id="auto-import-preview-copy"></p><p id="auto-import-preview-mode"></p><div class="setting-actions"><button type="button" class="secondary-button" id="auto-import-preview-cancel">취소</button><button type="button" class="primary-button" id="auto-import-preview-confirm">확인 후 자동 추가 시작</button></div></section>
+        <p id="auto-import-setting-error" class="error-message" role="alert" hidden></p>
+
+      </section>
+
+      <section class="settings-section settings-storage" aria-label="보관·내보내기"><details class="settings-more"><summary>보관·내보내기</summary>
+        <p id="library-path" class="folder-path">경로 확인 중</p><button type="button" class="text-button" id="library-folder-open" hidden>보관 폴더 열기</button><p id="library-folder-error" class="error-message" role="alert" hidden></p>
+        <section class="storage-details"><p><span id="stat-track-count">0곡</span> · <span id="stat-size">0 B</span> · 최애곡 <span id="stat-life-count">0곡</span></p></section><a class="secondary-button setting-action" href="/api/export" download><span data-icon="download"></span> 기록 내보내기(JSON)</a><p class="section-description settings-export-help">곡 정보·가사·번역·개인 기록·플레이리스트·저장한 대기열을 저장합니다. 음원 파일과 표지는 포함하지 않습니다.</p></details>
+      </section>
+      <section class="settings-section settings-about"><h3 class="sr-only">앱 정보</h3><p>Cove · 음악과 기록을 내 서재에</p><p class="settings-signature">Made by woodychoi777</p></section>
+    </div>
+  </dialog>
+
+  <dialog id="alarm-settings-dialog" aria-labelledby="alarm-settings-title">
+    <h2 id="alarm-settings-title">알람</h2>
+    <form id="alarm-settings-form">
+      <div class="alarm-schedule-row">
+        <label for="alarm-enabled">매일 반복</label><input id="alarm-enabled" class="setting-switch" type="checkbox" role="switch">
+        <label for="alarm-time">시각</label><input id="alarm-time" type="time" value="07:00" required>
+      </div>
+      <div id="alarm-song-slots"></div>
+      <p class="section-description">첫 곡은 10초 동안 서서히 커집니다. 세 곡을 차례로 들은 뒤 클래식을 재생합니다.</p>
+      <p id="alarm-wake-status" class="section-description" role="status"></p>
+      <details class="alarm-help"><summary>잠자기와 음량 안내</summary><p>Cove를 실행해 두세요. 창을 닫아도 알람 대기는 유지되지만, 앱을 종료하면 울리지 않습니다. 알람 1분 전 깨우기 예약에는 관리자 인증이 필요합니다. 맥이 잠겨 있다면 잠금 해제 후 아무 키로 종료하세요.</p><p>실제 소리 크기는 맥·스피커 음량에도 영향을 받습니다. 시스템 음량과 음소거는 자동 변경하지 않습니다.</p></details>
+      <p id="alarm-settings-error" class="error-message" role="alert" hidden></p>
+      <div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>닫기</button><button type="submit" class="primary-button">저장</button></div>
+    </form>
+  </dialog>
+  <dialog id="alarm-picker-dialog" aria-labelledby="alarm-picker-title">
+    <h2 id="alarm-picker-title">곡 선택</h2>
+    <label>소장곡 검색<input id="alarm-song-search" type="search" placeholder="곡, 아티스트 검색" autocomplete="off"></label>
+    <div id="alarm-search-results" class="alarm-search-results"></div>
+    <div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>닫기</button></div>
+  </dialog>
+  <dialog id="alarm-ringing-dialog" aria-labelledby="alarm-ringing-title">
+    <h2 id="alarm-ringing-title">좋은 아침이에요</h2>
+    <div class="alarm-now"><span id="alarm-stage-label"></span><strong id="alarm-now-title"></strong><span id="alarm-now-artist"></span></div>
+    <p>아무 키나 눌러 알람 종료</p>
+    <p id="alarm-ringing-error" class="error-message" role="alert" hidden></p>
+    <div class="form-actions"><button type="button" class="primary-button" id="alarm-dismiss">알람 종료</button></div>
+  </dialog>
+  <dialog id="playlist-name-dialog" aria-labelledby="playlist-name-heading"><h2 id="playlist-name-heading">새 플레이리스트</h2><form id="playlist-name-form" novalidate><label>플레이리스트 이름<input name="name" maxlength="100" autocomplete="off"></label><p class="error-message" id="playlist-name-error" role="alert" hidden></p><button type="button" class="text-button" id="playlist-name-reload" hidden>최신 이름 불러오기</button><div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>취소</button><button class="primary-button">만들기</button></div></form></dialog>
+  <dialog id="playlist-add-dialog" aria-labelledby="playlist-add-heading"><h2 id="playlist-add-heading">곡 담기</h2><p id="playlist-add-name"></p><label>소장곡 검색<input id="playlist-add-search" type="search" placeholder="곡, 아티스트, 앨범 검색"></label><div id="playlist-add-list" class="playlist-pick-list"></div><p id="playlist-add-empty" hidden>먼저 음악 파일을 서재에 추가해 주세요.</p><button type="button" class="secondary-button" id="playlist-import-link" hidden>음악 추가</button><p class="error-message" id="playlist-add-error" role="alert" hidden></p><button type="button" class="text-button" id="playlist-add-reload" hidden>최신 목록으로 다시 확인</button><div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>취소</button><button type="button" class="primary-button" id="playlist-add-save" disabled>추가</button></div></dialog>
+  <dialog id="playlist-target-dialog" aria-labelledby="playlist-target-heading"><h2 id="playlist-target-heading">플레이리스트에 추가</h2><p id="playlist-target-song"></p><div id="playlist-target-list" class="playlist-pick-list"></div><p id="playlist-target-empty" hidden>Collection에서 새 플레이리스트를 만들어 주세요.</p><button type="button" class="secondary-button" id="playlist-settings-link" hidden>새 플레이리스트</button><p class="error-message" id="playlist-target-error" role="alert" hidden></p><button type="button" class="text-button" id="playlist-target-reload" hidden>최신 목록 불러오기</button><div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>닫기</button></div></dialog>
+  <dialog id="playlist-delete-dialog" aria-labelledby="playlist-delete-heading"><h2 id="playlist-delete-heading">플레이리스트 삭제</h2><p id="playlist-delete-name"></p><p>음악 파일은 유지됩니다.</p><p class="error-message" id="playlist-delete-error" role="alert" hidden></p><button type="button" class="text-button" id="playlist-delete-reload" hidden>최신 목록으로 다시 확인</button><div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>취소</button><button type="button" class="destructive-button" id="playlist-delete-confirm">삭제</button></div></dialog>
+  <dialog id="playback-error-dialog" aria-labelledby="playback-error-heading"><h2 id="playback-error-heading">재생 문제</h2><p id="mini-status"></p><details><summary>자세히</summary><p id="playback-error-reason"></p></details><div class="form-actions"><button class="secondary-button" type="button" data-dialog-close>닫기</button><button class="secondary-button" type="button" id="skip-playback">다음 곡</button><button class="primary-button" type="button" id="retry-playback">다시 시도</button></div></dialog>
+  <dialog id="queue-save-dialog" aria-labelledby="queue-save-title"><h2 id="queue-save-title">대기열 저장</h2><p>현재 순서와 중복 곡을 함께 보관합니다.</p><form id="queue-save-form" class="queue-save"><label>대기열 이름<input name="name" maxlength="100" placeholder="예: 일요일 오후" required></label><p id="queue-save-error" class="error-message" role="alert" hidden></p><div class="form-actions"><button type="button" class="secondary-button" data-dialog-close>취소</button><button class="primary-button">저장</button></div></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Cove",
+  "short_name": "Cove",
+  "description": "음원과 가사, 나의 기록을 간직하는 음악 서재",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#295eaa",
+  "icons": [
+    {
+      "src": "/icons/soriseojae-app-v4-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/soriseojae-app-v4-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
