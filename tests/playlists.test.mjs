@@ -75,12 +75,17 @@ test('파일 접근 실패는 목록 연결을 지우지 않고 전체/빈 순�
 });
 
 test('기존 DB 추가 마이그레이션·재시작·내보내기 v2는 기존 tracks/queues와 순서를 보존한다', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'cove-playlists-')); t.after(() => rm(root, { recursive: true, force: true }));
-  let s = fixture(t, join(root, 'store.sqlite'));
+  const root = await mkdtemp(join(tmpdir(), 'cove-playlists-'));
+  let s;
+  t.after(async () => {
+    if (s?.db.isOpen) s.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  s = fixture(t, join(root, 'store.sqlite'));
   const original = s.exportCollection();
   // Simulate the previous schema with its existing records and queues.
   s.db.exec('DROP TABLE playlist_tracks; DROP TABLE playlists;'); s.close();
-  s = new MusicStore(join(root, 'store.sqlite')); t.after(() => s.close());
+  s = new MusicStore(join(root, 'store.sqlite'));
   assert.deepEqual(s.exportCollection().tracks, original.tracks); assert.deepEqual(s.listQueues(), original.queues);
   const a = s.createPlaylist('보존 목록'); const saved = s.updatePlaylist(a.id, { revision: 1, trackIds: [3, 1, 2] }); s.close();
   s = new MusicStore(join(root, 'store.sqlite'));
