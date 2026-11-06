@@ -1,0 +1,51 @@
+name: Checks and Windows package
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: choco install nsis --yes --no-progress
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $env:PATH += ';C:\Program Files (x86)\NSIS'
+          npm run windows:build
+      - run: node --test tests/path-safety.test.mjs tests/player.test.mjs tests/streaming-player.test.mjs tests/lyrics.test.mjs tests/playlists.test.mjs
+      - name: Windows playback smoke test
+        shell: pwsh
+        run: |
+          npm install --prefix "$env:RUNNER_TEMP/cove-testing" --no-save playwright@1.65.0
+          $env:PLAYWRIGHT_MODULE = "$env:RUNNER_TEMP/cove-testing/node_modules/playwright/index.mjs"
+          $env:RUN_WINDOWS_TESTS = '1'
+          node --test tests/windows-desktop.test.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Cove-Windows-x64-candidate
+          path: dist/Cove-Setup-*-x64.exe
+          if-no-files-found: error
