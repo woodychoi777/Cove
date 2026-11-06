@@ -1,86 +1,57 @@
 # Cove · Offline Music Player
 
-Cove is an open-source offline music player and local music library for macOS, with a Windows preview. Play your FLAC, MP3, and M4A files, follow synced LRC lyrics, and keep playlists and personal notes on your device.
+English · [한국어](docs/public/README.ko.md) · [简体中文](docs/public/README.zh-CN.md) · [日本語](docs/public/README.ja.md)
 
-나는 애플을 좋아한다. 먹는 사과도 좋지만, 여기서는 간결함을 추구하면서도 끊임없이 도전하는 회사 애플 이야기다. 나도 광고나 구독료에 신경 쓰지 않고 정말 좋아하는 음악만 골라 듣고 싶었다. 그래서 내 음악 파일을 위한 오프라인 플레이어이자 로컬 음악 서재, Cove를 만들었다.
+Cove is an open-source offline music player and local library for macOS, with a Windows preview. Play your own FLAC, MP3, and M4A files, follow synced LRC lyrics, and keep playlists and notes on your device.
 
-Today에서 오늘 들을 곡을 고르고, Collection에서 소장곡과 플레이리스트를 이어 들을 수 있다. 계정이나 인터넷 연결 없이 음악을 듣고, 재생에 맞춰 가사를 보거나 곡마다 코멘트를 남길 수 있다.
+I like Apple. I like the fruit too, but here I mean the company that keeps trying new things while caring about simplicity. I built Cove because I wanted a quiet place to listen to the music I love, without ads or a subscription.
 
-## 설치
+![Cove Today with favorite tracks and recent listening from a sample library](docs/public/screenshots/cove-today.png)
 
-[**v0.1.19 다운로드**](https://github.com/woodychoi777/Cove/releases/tag/v0.1.19) · Mac Apple Silicon / Windows x64 미리보기
+[Collection screenshot](docs/public/screenshots/cove-collection.png) · [Synced lyrics screenshot](docs/public/screenshots/cove-lyrics.png)
 
-**Mac:** `Cove-0.1.19-mac-arm64.dmg`에서 Cove를 Applications로 옮깁니다. Apple Silicon 전용이며 Node.js 설치는 필요하지 않습니다. 패키지 최소 요구 버전은 macOS 13, 검증 환경은 macOS 15.7.4 · arm64입니다. 로컬 ad-hoc 서명이며 Apple 공증을 받지 않았습니다. 차단되면 [Apple의 앱 실행 안내](https://support.apple.com/en-gb/102445)를 확인하세요.
+## Install
 
-**Windows:** `Cove-Setup-0.1.19-x64.exe`를 실행합니다. Windows 10/11 x64용 설치 후보이며 사용자 계정에 설치합니다. 관리자 권한을 요구하지 않습니다. 대안인 `Cove-0.1.19-windows-x64.zip`은 폴더 전체를 풀고 안의 `Cove.exe`를 실행하세요. EXE만 떼어 옮기면 실행할 수 없습니다. Windows 서명 인증서는 적용하지 않았습니다.
+Download the installer for your platform from [GitHub Releases](https://github.com/woodychoi777/Cove/releases). Verify your download with the SHA-256 checksums on the release page.
 
-제공된 SHA-256으로 내려받은 파일을 확인하세요. **Windows 실기기 설치·재생은 아직 검증하지 않았습니다.** 공개 후보의 빌드와 정적 구조를 확인한 상태이며, 저장소의 Windows CI와 [Windows 확인 절차](docs/public/WINDOWS.md)를 통과한 뒤 일반 배포를 권장합니다. Intel Mac·Windows ARM 전용·모바일 설치판은 제공하지 않습니다.
+- **Mac, Apple Silicon, macOS 13 or later.** Open the DMG and move Cove to Applications. The app is ad-hoc signed and is not notarized. If macOS blocks the launch, see [Apple's app-opening instructions](https://support.apple.com/en-gb/102445).
+- **Windows 10/11, x64 preview.** Run the setup EXE for a per-user installation, or extract the entire portable ZIP and open Cove.exe from the extracted folder. Windows builds are unsigned. The packaged app has been exercised on a GitHub Windows runner. Installation and removal still need physical Windows testing. [Windows build and verification notes](docs/public/WINDOWS.md)
+- **Language.** Choose System, English, Simplified Chinese, Korean, or Japanese in **Settings → Appearance → Language**. Quit and reopen Cove to apply your choice.
 
-첫 실행에서 **새 서재 시작** 또는 **기존 서재 열기**를 선택합니다. 새 서재 기본 위치는 사용자의 **음악/Cove**이며 ‘보관 위치 변경’으로 바꿀 수 있습니다. 기존 서재는 `soriseojae.sqlite`와 `library`가 함께 있는 폴더를 선택하세요.
+On first launch, create a library or open an existing one. New libraries default to **Music/Cove**. To reconnect an existing library, select the folder containing both `soriseojae.sqlite` and the `library` subfolder.
 
-## 첫 음악 추가
+## Add and play music
 
-1. 사이드바의 **음악 추가**를 누릅니다. 빈 Today와 Collection에서도 시작할 수 있습니다. Mac은 ⌘O, Windows는 Ctrl+O도 사용할 수 있습니다.
-2. **폴더 선택**, **파일 선택**, 또는 끌어놓기로 음악을 고릅니다. 가수·앨범별 하위 폴더도 읽습니다.
-3. 고른 파일은 바로 복사해 추가하며 원본을 남깁니다. 추가 전에 곡명·가수명을 고치려면 **곡 정보 확인 후 추가**를 켜세요. 여러 곡을 각각 수정한 뒤 한 번에 추가할 수 있습니다.
-4. Collection에서 곡 행을 누르면 표시된 목록 순서로 재생합니다. 셔플·반복과 대기열은 하단 플레이어에서 조작합니다. 현재 곡을 누르면 가사와 코멘트를 엽니다.
+1. Choose **Add music** in the sidebar, or press ⌘O on Mac or Ctrl+O on Windows.
+2. Choose files or a folder, or drag audio files onto the import area. Cove copies the selected files by default. Turn on **Review track info first** to edit titles and artist names before importing.
+3. Select a track in **Collection** to play from that point in the list. The player provides shuffle, repeat, a queue, and track transitions. Select the playing track to open its lyrics, favorites, and notes.
 
-FLAC, ALAC/M4A, MP3, AAC, Ogg Vorbis/Opus를 지원합니다. 비트레이트 제한이나 재인코딩은 없습니다. 보호된 파일·손상된 파일·해당 코덱으로 재생할 수 없는 파일은 추가/재생에 실패할 수 있습니다. 같은 폴더의 같은 이름 `.lrc`를 함께 선택하면 가사를 연결합니다. 내장 표지 추출과 사진 직접 등록을 지원합니다.
+Cove supports FLAC, ALAC/M4A, MP3, AAC, and Ogg Vorbis/Opus. Cove keeps the audio as-is. For synced lyrics, include a UTF-8 `.lrc` file alongside the audio with the same basename. Cove can extract embedded artwork or use an image you choose.
 
-**새 플레이리스트**는 Collection의 목록 탭 옆에 있습니다. 소장곡을 넣는 **곡 담기**와 디스크의 파일을 가져오는 **음악 추가**는 별도 조작입니다. 곡과 플레이리스트의 우클릭·Shift+F10 메뉴도 사용할 수 있습니다.
+**Add tracks** puts music already in your library into a playlist. **Add music** imports files from disk. Track and playlist menus also open with a right-click, Shift+F10, or a long press.
 
-## 자동 추가 폴더
+## Automatically import from a folder
 
-**설정 → 자동 추가 → 폴더 지정**에서 전용 폴더 한 개를 고릅니다. 하위 폴더를 포함한 기존 음악의 수와 용량을 확인한 뒤 **확인 후 자동 추가 시작**을 눌러야 처리를 시작합니다. ‘폴더 변경’, ‘지정 폴더 열기’, ‘다시 확인’을 같은 곳에서 제공합니다.
+In **Settings → Auto-import**, choose a dedicated folder, review the preview, and confirm. While Cove is running, it watches that folder and its subfolders. It waits for files to settle and skips exact duplicates. The default **Copy** mode keeps originals. **Move** removes them after the stored audio and linked lyrics are verified.
 
-- 기본 **복사**는 원본을 보존합니다. 접힌 **가져오기 방식**의 **이동**은 보관본과 연결 LRC 검증 후 원본을 제거하는 고급 옵션입니다. 기존 이동 설정은 유지됩니다.
-- 파일이 8초 이상 안정된 뒤 추가하고, 처리 직전에도 변경 여부를 확인합니다. 파일 변경 감지와 60초 보완 확인을 함께 사용합니다.
-- 체크섬이 같은 파일은 중복으로 구분합니다. 제목이나 음질만으로 다른 파일을 교체하지 않습니다. 늦게 도착한 LRC도 확인하되 작성한 가사는 덮어쓰지 않습니다.
-- 문제가 생기면 설정에 오류와 복구 안내를 표시합니다. **보관 완료·이동 미완료**라면 음악은 보관됐지만 원본 정리를 끝내지 않은 상태입니다. 오류를 해결한 뒤 ‘다시 확인’을 누르세요.
-- 감지 폴더와 보관 폴더가 서로를 포함할 수 없습니다. 홈·디스크 전체·심볼릭 링크는 지정할 수 없습니다. 하위 8단계·10,000개 항목까지 확인하며 초과 시 더 작은 음악 폴더를 선택하세요.
-- 외장 디스크가 분리되거나 폴더가 사라지면 설정과 경로를 유지합니다. 다시 연결한 뒤 ‘다시 확인’을 누르거나 폴더를 변경하세요. 사라진 경로를 새로 만들지 않습니다.
+Keep the watched folder separate from the library folder. If a drive disconnects, reconnect it and choose **Check again** or select a new folder. For best results choose a specific music folder with at most 8 levels and 10,000 items.
 
-Cove가 실행 중일 때만 자동 추가합니다. 웹 버전에는 설치 앱의 폴더 선택/탐색기 열기 기능이 없어 수동 경로 확인이 대신 표시됩니다.
+### Example with QQ Music and QM Unlock
 
-### QQ音乐에서 받은 음원 정리하기
+For local files you are allowed to access and convert, [QM Unlock](https://github.com/mary20050520/qmunlock) can watch the QQ Music download folder and write compatible audio to a separate output folder. Use its folder import to process files already present. In Cove, set **Auto-import** to watch the **output folder** in Copy mode. Keep both apps open. See the [Chinese guide](docs/public/README.zh-CN.md) for the same workflow in Chinese.
 
-이미 다운로드한 파일을 정리할 때는 외부 프로젝트 [QM Unlock](https://github.com/mary20050520/qmunlock)의 폴더 감시와 Cove의 자동 추가를 이어 쓸 수 있습니다. 접근 및 변환 권한이 있는 파일에 사용하세요.
+## Your library and updates
 
-1. **QM Unlock**에서 QQ音乐 다운로드 폴더를 감시 대상으로 선택하고, 변환 결과를 별도 출력 폴더에 저장합니다. 감시를 켜기 전에 받은 파일은 QM Unlock에서 폴더를 직접 선택해 일괄 처리합니다.
-2. **Cove → 설정 → 자동 추가**에서 QM Unlock의 **출력 폴더**를 지정하고 복사 방식으로 시작합니다. 두 앱이 실행 중이면 Cove가 출력 폴더에 생성된 FLAC·MP3·M4A·Ogg 파일을 서재에 추가합니다. 가사도 가져오려면 같은 이름의 `.lrc`를 음원 옆에 둡니다.
+Cove organizes its managed audio by artist, album, and track number using file tags. **Settings → Storage and export** shows the location and exports track info, lyrics, notes, history summaries, playlists, and saved queues as JSON. For a complete backup including audio and artwork, quit Cove and copy the entire library folder.
 
-**中文简要说明**：仅处理你有权访问和转换的本地文件。让 QM Unlock 监听 QQ 音乐的下载目录，并把转换结果保存到单独的文件夹。已有文件可以先在 QM Unlock 中选择文件夹批量处理。然后在 Cove 的「설정 → 자동 추가」（设置 → 自动添加）中选择 **转换输出文件夹**，以复制模式开始自动导入。两个应用需要保持运行。同名 `.lrc` 放在音频旁边即可一并导入。
+Before updating, save any drafts and quit Cove. On Mac, replace the app in Applications. On Windows, run the new setup EXE. Cove can reconnect a moved library from its startup dialog.
 
-## 보관 구조와 내보내기
+The alarm requires Cove to be running. Wake from sleep depends on the Mac setup and is unavailable on Windows. If Cove has trouble reading your library, check the selected path or the `service.log` in that library. Please remove private paths and personal data before sharing diagnostics.
 
-원본 폴더 구성은 자유롭습니다. 보관본은 태그에 따라 다음처럼 정리합니다.
+## Develop
 
-```text
-음악/Cove/
-  soriseojae.sqlite
-  library/음악/가수/연도 - 앨범/01 - 곡명.flac
-```
+Use Node.js 24 or later. Run `npm ci` and `npm start`, then open `http://127.0.0.1:4317`. See the [development guide](docs/public/DEVELOPMENT.md) for tests and packaging.
 
-다중 디스크는 두 번째 디스크부터 번호를 붙이며, 같은 이름은 숫자 접미사로 구분합니다. 부족한 태그에는 기본 이름을 쓰고 긴 이름·경로 구분자를 정리합니다. 파일 내용과 원본 태그는 바꾸지 않습니다. 실제 경로는 **음악 추가 → 어디에 보관되나요?**와 **설정 → 보관·내보내기**에서 확인합니다.
-
-**보관·내보내기**를 펼치면 JSON 내보내기가 있습니다. 곡 정보·가사·기록·감상 횟수와 최근 감상 시각·저장한 플레이리스트와 대기열을 포함하며 **음원과 사진 파일은 포함하지 않습니다**. 전체 백업이 필요하면 앱을 종료하고 서재 폴더 전체를 별도로 복사하세요. JSON 가져오기/복원은 제공하지 않습니다.
-
-## 업데이트
-
-작성 중인 기록을 저장하고 Cove를 완전히 종료하세요. Mac은 Applications의 앱만 교체하고, Windows는 새 설치 EXE를 실행합니다. 서재 폴더와 사용자 설정은 유지하세요. 서재를 이동했다면 시작 화면에서 ‘기존 서재 다시 찾기’로 연결합니다. 잘못 선택하거나 취소해도 이전 연결 정보를 지우지 않습니다. 두 버전이 같은 서재를 동시에 수정하지 않게 하세요.
-
-## 문제 해결
-
-- **음악이 보이지 않음:** 설정에서 보관 위치를 확인하세요. 감지 폴더의 파일은 ‘자동 추가 시작’ 확인 전에는 가져오지 않습니다.
-- **추가되지 않음:** 자동 추가 오류와 지원 형식, 외장 디스크 연결을 확인하세요. 복사 중인 큰 파일은 완료 후 8초 이상 기다리세요. 잘못된 LRC는 음악 추가와 별도로 표시합니다.
-- **재생 오류:** 하단 플레이어에서 오류와 재시도를 확인하세요. 긴 M4A는 범위 재생을 사용합니다. 다른 포맷과 출력 장치의 호환성은 파일에 따라 다릅니다.
-- **알람:** 설정의 알람에서 구성하며 앱이 실행 중이어야 합니다. Mac의 잠자기 깨우기는 별도 기기 확인이 필요합니다. Windows는 잠자기 깨우기를 지원하지 않으며 앱 실행 중 알람만 제공합니다.
-- **진단:** 앱 메뉴의 서재 폴더에서 `service.log`를 확인할 수 있습니다. 문제 제보에 음악·DB·개인 기록·로그의 개인 경로를 그대로 첨부하지 마세요.
-
-## 개발과 공개 준비
-
-Node.js 24 이상에서 `npm ci` 후 `npm start`를 실행하고 `http://127.0.0.1:4317`을 엽니다. 개발용 기본 서재는 프로젝트의 `data/`입니다. `SORISEOJAE_DATA_DIR`과 `PORT`로 분리할 수 있습니다. 설치 앱은 이 개발 경로를 포함하지 않습니다.
-
-개발·검사·패키징 방법은 [개발 안내](docs/public/DEVELOPMENT.md), 외부 라이선스는 [의존성 고지](THIRD_PARTY_NOTICES.md)를 참고하세요. Cove 소스는 [MIT 라이선스](LICENSE)이며 음악 파일의 권리는 각 권리자에게 있습니다.
+Cove source is available under the [MIT License](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for bundled dependencies.
 
 Made by woodychoi777
