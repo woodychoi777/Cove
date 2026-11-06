@@ -1,3 +1,4 @@
+import { localizeMarkup, setupLanguage, t } from './i18n.js';
 import { buildLyrics, activeLyricIndex } from './lyrics.js';
 import { QueuePlayer } from './player.js';
 import { albumTracks, playDisplayedList } from './listening.js';
@@ -39,6 +40,7 @@ let alarmUI;
 const savesInFlight = new Set();
 const favoritesInFlight = new Set();
 let autoImportEnabled = false;
+setupLanguage(document.querySelector('#language-setting'));
 const autoImportSettings = setupAutoImportSettings({ getToken: () => state.localToken, onStatus: status => { autoImportEnabled = status.enabled; } });
 hydrateIcons();
 document.querySelectorAll('dialog').forEach(setupDialog);
@@ -77,7 +79,7 @@ for (const eventName of ['toggle', 'close', 'focusout']) {
 }
 player.addEventListener('error', event => showToast(event.detail));
 player.addEventListener('listened', event => {
-  recordPlayback(event.detail.id, event.detail.listenedMs, event.detail.completed).catch(() => showToast('감상 이력을 저장하지 못했습니다.'));
+  recordPlayback(event.detail.id, event.detail.listenedMs, event.detail.completed).catch(() => showToast(t('감상 이력을 저장하지 못했습니다.')));
 });
 window.addEventListener('pagehide', () => player.stop(true));
 window.addEventListener('beforeunload', event => {
@@ -126,7 +128,7 @@ document.querySelector('#batch-form').addEventListener('submit', commitBatchImpo
 document.querySelector('#cancel-import').addEventListener('click', resetImport);
 document.querySelector('#import-another').addEventListener('click', resetImport);
 document.querySelector('#open-imported').addEventListener('click', () => navigate('library'));
-document.querySelector('#play-imported').addEventListener('click', () => playList(state.importedTracks, '추가한 곡'));
+document.querySelector('#play-imported').addEventListener('click', () => playList(state.importedTracks, t('추가한 곡')));
 document.querySelector('#review-failed').addEventListener('click', reviewFailedImports);
 
 listeningUI = setupListeningUI({ player, state, openTrack, playList, refresh: refreshState, toast: showToast, escapeHtml, formatTime, coverMarkup });
@@ -204,8 +206,8 @@ window.addEventListener('cove-service-reconnected', async () => {
     await autoImportSettings.refresh();
     autoImportRevision = -1;
     await syncAutoImport();
-    showToast('음악 서재에 다시 연결했습니다.');
-  } catch { showToast('음악 서재 연결을 다시 확인해 주세요.'); }
+    showToast(t('음악 서재에 다시 연결했습니다.'));
+  } catch { showToast(t('음악 서재 연결을 다시 확인해 주세요.')); }
 });
 
 function setAppMode(mode, { preview = false } = {}) {
@@ -228,7 +230,7 @@ async function refreshState() {
   const request = ++stateRequest;
   const stateRequestedAt = Date.now();
   const response = await fetch('/api/state');
-  if (!response.ok) throw new Error('컬렉션을 읽지 못했습니다.');
+  if (!response.ok) throw new Error(t('컬렉션을 읽지 못했습니다.'));
   const data = await response.json();
   if (request !== stateRequest) return;
   state.tracks = data.tracks;
@@ -282,7 +284,7 @@ function navigate(route, { restore = null } = {}) {
   syncListeningShell();
   navButtons.forEach(button => { button.classList.toggle('is-active', button.dataset.route === route); if (button.dataset.route === route) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); });
   if (route === 'library') renderLibrary();
-  if (route === 'home') { listeningUI?.activateHome(); renderHome(); refreshState().catch(() => showToast('감상 목록을 불러오지 못했습니다.')); }
+  if (route === 'home') { listeningUI?.activateHome(); renderHome(); refreshState().catch(() => showToast(t('감상 목록을 불러오지 못했습니다.'))); }
   if (restore) {
     requestAnimationFrame(() => {
       if (state.route !== route) return;
@@ -302,9 +304,9 @@ function navigate(route, { restore = null } = {}) {
 function placeHeaderTools() { /* Global actions stay in the sidebar. */ }
 
 function renderAll(options = {}) {
-  document.querySelector('#stat-track-count').textContent = `${state.stats.trackCount ?? 0}곡`;
+  document.querySelector('#stat-track-count').textContent = t("{0}곡", state.stats.trackCount ?? 0);
   document.querySelector('#stat-size').textContent = formatBytes(state.stats.totalBytes ?? 0);
-  document.querySelector('#stat-life-count').textContent = `${state.stats.lifeSongCount ?? 0}곡`;
+  document.querySelector('#stat-life-count').textContent = t("{0}곡", state.stats.lifeSongCount ?? 0);
   document.querySelector('#library-path').textContent = state.libraryRoot;
   document.querySelector('#import-library-path').textContent = state.libraryRoot;
   renderHome();
@@ -318,7 +320,7 @@ async function playTrack(id, seconds) {
   player.ensureContext();
   if (player.trackId !== id) {
     const album = albumTracks(state.tracks, track);
-    player.setQueue(album.map(item => item.id), album.findIndex(item => item.id === id), `앨범 · ${track.album}`);
+    player.setQueue(album.map(item => item.id), album.findIndex(item => item.id === id), t("앨범 · {0}", track.album));
   }
   if (seconds !== undefined) await player.seek(seconds);
   await player.play();
@@ -349,9 +351,9 @@ function renderLibrary() {
   root.classList.toggle('is-playlist-editing', !!editing);
   const source = collectionSource();
   const restoreFocus = retainFocus(root);
-  const markup = filtered.map(track => `<article class="collection-row" data-current-id="${track.id}">
+  const markup = filtered.map(track => localizeMarkup`<article class="collection-row" data-current-id="${track.id}">
     <button type="button" class="collection-play" data-row-play="${track.id}" ${editing || track.missing ? 'disabled' : ''} aria-label="${escapeHtml(joined(track.title, artistName(track.artist), longTrackLabel(track.durationMs)))} 듣기" title="${escapeHtml(joined(track.title, metadataText(track)))}"><span class="collection-song">${coverMarkup(track)}<span><strong class="collection-title"><span class="collection-title-text">${escapeHtml(track.title)}</span>${longTrackLabel(track.durationMs) ? `<span class="long-track-label">${longTrackLabel(track.durationMs)}</span>` : ''}</strong><small ${artistName(track.artist) ? '' : 'hidden'}>${escapeHtml(artistName(track.artist))}</small></span></span></button>
-    ${editing ? playlists.rowActions(track.id) : `<div class="song-menu" popover="auto" id="more-${track.id}" aria-label="${escapeHtml(track.title)} 곡 메뉴">${track.missing ? '' : `<button data-row-next="${track.id}">다음에 듣기</button><button data-row-append="${track.id}">대기열 끝에 추가</button><button data-playlist-track="${track.id}">플레이리스트에 추가</button>`}${playlist ? `<button data-playlist-remove="${track.id}">이 플레이리스트에서 빼기</button>` : ''}</div>`}
+    ${editing ? playlists.rowActions(track.id) : localizeMarkup`<div class="song-menu" popover="auto" id="more-${track.id}" aria-label="${escapeHtml(track.title)} 곡 메뉴">${track.missing ? '' : localizeMarkup`<button data-row-next="${track.id}">다음에 듣기</button><button data-row-append="${track.id}">대기열 끝에 추가</button><button data-playlist-track="${track.id}">플레이리스트에 추가</button>`}${playlist ? localizeMarkup`<button data-playlist-remove="${track.id}">이 플레이리스트에서 빼기</button>` : ''}</div>`}
   </article>`).join('');
   // A listening-history response must not detach an open row menu or its
   // focused action. Rebind only when the displayed content/source changes.
@@ -364,28 +366,28 @@ function renderLibrary() {
     playlists?.bindRows(root);
     for (const [name, next] of [['next', true], ['append', false]]) root.querySelectorAll(`[data-row-${name}]`).forEach(button => button.addEventListener('click', () => {
       player.enqueue(Number(button.getAttribute(`data-row-${name}`)), next);
-      showToast(next ? '다음 곡으로 추가했습니다.' : '대기열 끝에 추가했습니다.');
+      showToast(next ? t('다음 곡으로 추가했습니다.') : t('대기열 끝에 추가했습니다.'));
     }));
     bindContextMenus(root);
     restoreFocus();
   }
   syncTrackPlayback();
-  document.querySelector('#collection-results').textContent = query ? `검색 결과 ${filtered.length}곡` : '';
+  document.querySelector('#collection-results').textContent = query ? t("검색 결과 {0}곡", filtered.length) : '';
   document.querySelector('#collection-results').hidden = !query;
   document.querySelector('#library-empty').hidden = filtered.length > 0;
-  document.querySelector('#library-empty h2').textContent = query ? '검색 결과가 없습니다' : playlist ? '곡을 추가해 보세요' : '소장한 음악이 없습니다';
+  document.querySelector('#library-empty h2').textContent = query ? t('검색 결과가 없습니다') : playlist ? t('곡을 추가해 보세요') : t('소장한 음악이 없습니다');
   document.querySelector('#library-empty p').hidden = !!playlist && !query;
-  document.querySelector('#library-empty p').textContent = query ? '다른 곡명, 아티스트 또는 앨범명으로 검색해 보세요.' : '폴더나 파일에서 음악을 추가해 보세요.';
+  document.querySelector('#library-empty p').textContent = query ? t('다른 곡명, 아티스트 또는 앨범명으로 검색해 보세요.') : t('폴더나 파일에서 음악을 추가해 보세요.');
   document.querySelector('#clear-search').hidden = !query;
   document.querySelector('#library-empty-add').hidden = !!query || !!playlist;
 }
 
 document.querySelector('#clear-search').addEventListener('click', () => { const input = document.querySelector('#search-input'); input.value = ''; renderLibrary(); input.focus(); });
 
-function collectionSource() { const name = playlists?.selected()?.name; return document.querySelector('#search-input').value.trim() ? `${name || 'Collection'} · 검색 결과` : name ? `플레이리스트 · ${name}` : 'Collection'; }
+function collectionSource() { const name = playlists?.selected()?.name; return document.querySelector('#search-input').value.trim() ? t("{0} · 검색 결과", name || 'Collection') : name ? t("플레이리스트 · {0}", name) : 'Collection'; }
 
 function coverMarkup(track) {
-  return `<div class="cover ${track.artworkPath ? 'has-artwork' : ''}">${track.artworkPath ? `<img src="/api/tracks/${track.id}/artwork?v=${encodeURIComponent(track.artworkPath)}" alt="${escapeHtml(joined(albumName(track.album), '앨범 사진'))}">` : icon('disc')}</div>`;
+  return `<div class="cover ${track.artworkPath ? 'has-artwork' : ''}">${track.artworkPath ? `<img src="/api/tracks/${track.id}/artwork?v=${encodeURIComponent(track.artworkPath)}" alt="${escapeHtml(joined(albumName(track.album), t('앨범 사진')))}">` : icon('disc')}</div>`;
 }
 
 function bindTrackButtons(container) {
@@ -404,7 +406,7 @@ async function openTrack(id) {
   }
   try {
     const response = await fetch(`/api/tracks/${id}`);
-    if (!response.ok) throw new Error('곡을 불러오지 못했습니다.');
+    if (!response.ok) throw new Error(t('곡을 불러오지 못했습니다.'));
     const track = await response.json();
     track.title = state.tracks.find(item => item.id === id)?.title ?? track.title;
     if (request !== detailRequest) return;
@@ -413,7 +415,7 @@ async function openTrack(id) {
     state.selectedTrack = track;
     renderDetail();
     navigate('detail');
-  } catch { if (request === detailRequest) showToast('곡을 불러오지 못했습니다. 다시 시도해 주세요.'); }
+  } catch { if (request === detailRequest) showToast(t('곡을 불러오지 못했습니다. 다시 시도해 주세요.')); }
 }
 
 function isLyricsListening() {
@@ -448,7 +450,7 @@ async function followPlayingTrack() {
   container.setAttribute('aria-busy', 'true');
   try {
     const response = await fetch(`/api/tracks/${id}`);
-    if (!response.ok) throw new Error('곡을 불러오지 못했습니다.');
+    if (!response.ok) throw new Error(t('곡을 불러오지 못했습니다.'));
     const track = await response.json();
     if (request !== detailRequest) return;
     if (!isLyricsListening() || player.trackId !== id || detailInteractionOpen()) { cancelDetailFollow(); return; }
@@ -464,7 +466,7 @@ async function followPlayingTrack() {
     if (request !== detailRequest) return;
     cancelDetailFollow();
     followTarget = null;
-    showToast('곡을 불러오지 못했습니다. 다시 시도해 주세요.');
+    showToast(t('곡을 불러오지 못했습니다. 다시 시도해 주세요.'));
   }
 }
 
@@ -475,19 +477,19 @@ function renderDetail() {
   lyricsView?.destroy();
   lyricsView = null;
   detailModes = null;
-  container.innerHTML = `
+  container.innerHTML = localizeMarkup`
     <p class="detail-draft" data-detail-draft role="status" hidden>저장하지 않은 변경사항</p>
     <div class="detail-stage">
     <div class="listening-backdrop" aria-hidden="true"></div>
     <div class="detail-hero">
-      <div class="detail-artwork"><div data-detail-cover>${coverMarkup(track)}</div><button type="button" class="secondary-button artwork-open" data-artwork-open data-input-only hidden>${icon('image-plus')} 앨범 사진 ${track.artworkPath ? '변경' : '등록'}</button></div>
+      <div class="detail-artwork"><div data-detail-cover>${coverMarkup(track)}</div><button type="button" class="secondary-button artwork-open" data-artwork-open data-input-only hidden>${icon('image-plus')} 앨범 사진 ${track.artworkPath ? t('변경') : t('등록')}</button></div>
       <div class="detail-copy">
         <p ${albumName(track.album) || track.year ? '' : 'hidden'}>${escapeHtml(joined(albumName(track.album), track.year))}</p>
         <h1 data-detail-title>${escapeHtml(track.title)}</h1>
         <p><span class="detail-artist" data-detail-artist ${artistName(track.artist) ? '' : 'hidden'}>${escapeHtml(artistName(track.artist))}</span><span class="detail-quality">${escapeHtml(qualityText(track))}</span></p>
       <button type="button" class="text-button current-track-link" data-lyrics-current-track hidden>재생 중인 곡 보기</button>
         <div class="detail-actions">
-          <button type="button" class="icon-button detail-favorite" data-favorite aria-label="${track.isLifeSong ? '최애곡에서 해제' : '최애곡에 추가'}" title="${track.isLifeSong ? '최애곡에서 해제' : '최애곡에 추가'}" aria-pressed="${track.isLifeSong}" ${favoritesInFlight.has(track.id) ? 'disabled' : ''}>${icon('heart')}</button>
+          <button type="button" class="icon-button detail-favorite" data-favorite aria-label="${track.isLifeSong ? t('최애곡에서 해제') : t('최애곡에 추가')}" title="${track.isLifeSong ? t('최애곡에서 해제') : t('최애곡에 추가')}" aria-pressed="${track.isLifeSong}" ${favoritesInFlight.has(track.id) ? 'disabled' : ''}>${icon('heart')}</button>
           <button type="button" class="icon-button" data-comments="${track.id}" aria-haspopup="dialog" aria-controls="comments-dialog" aria-expanded="false" aria-label="코멘트" title="코멘트">${icon('message-circle')}</button>
           <button type="button" class="icon-button" data-edit-info="${track.id}" aria-label="곡 정보 편집" title="곡 정보 편집" aria-haspopup="dialog">${icon('ellipsis')}</button>
         </div>
@@ -495,7 +497,7 @@ function renderDetail() {
     </div>
     <dialog class="artwork-dialog" aria-labelledby="artwork-title">
       <h2 id="artwork-title">앨범 사진 등록</h2>
-      <p>${albumName(track.album) ? escapeHtml(albumName(track.album)) + ' 앨범의 모든 곡에 적용됩니다.' : '앨범 정보가 없어 이 곡에만 적용됩니다.'}</p>
+      <p>${albumName(track.album) ? escapeHtml(albumName(track.album)) + t(' 앨범의 모든 곡에 적용됩니다.') : t('앨범 정보가 없어 이 곡에만 적용됩니다.')}</p>
       <div class="artwork-preview" data-artwork-preview><span>사진을 선택해 주세요</span></div>
       <label class="secondary-button file-button">사진 선택<input data-artwork-file type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"></label>
       <p class="artwork-file-info" data-artwork-info>JPG · PNG · WebP / 최대 10 MB</p>
@@ -512,8 +514,8 @@ function renderDetail() {
         <div data-lyrics-editor hidden>
           <p class="lyrics-help">LRC 시간표가 있으면 재생에 맞춰 표시합니다. 번역도 같은 시간표를 사용하거나 원문과 줄 수를 맞춰 입력하세요.</p>
           <div class="notes-grid">
-            <label>원문 가사${track.lyricsSourceName ? ` · ${escapeHtml(track.lyricsSourceName)} 자동 연결` : ''}<textarea name="lyricsOriginal" placeholder="원문 가사 또는 LRC를 입력하세요">${escapeHtml(track.lyricsOriginal)}</textarea></label>
-            <label>한국어 번역<textarea name="lyricsTranslation" placeholder="한국어 번역을 입력하세요">${escapeHtml(track.lyricsTranslation)}</textarea></label>
+            <label>원문 가사${track.lyricsSourceName ? t(" · {0} 자동 연결", escapeHtml(track.lyricsSourceName)) : ''}<textarea name="lyricsOriginal" placeholder="원문 가사 또는 LRC를 입력하세요">${escapeHtml(track.lyricsOriginal)}</textarea></label>
+            <label>번역<textarea name="lyricsTranslation" placeholder="번역을 입력하세요">${escapeHtml(track.lyricsTranslation)}</textarea></label>
           </div>
         </div>
       </div>
@@ -543,7 +545,7 @@ function setupDetailModes(container) {
     drafts.update(id, values);
     const banner = container.querySelector('[data-detail-draft]');
     banner.hidden = !drafts.get(id);
-    banner.textContent = '저장하지 않은 변경사항';
+    banner.textContent = t('저장하지 않은 변경사항');
   };
   function setMode(value) {
     const editing = value === 'edit';
@@ -579,8 +581,8 @@ function setupArtworkEditor(container, track) {
     input.value = '';
     save.disabled = true;
     error.hidden = true;
-    preview.innerHTML = '<span>사진을 선택해 주세요</span>';
-    info.textContent = 'JPG · PNG · WebP / 최대 10 MB';
+    preview.innerHTML = localizeMarkup`<span>사진을 선택해 주세요</span>`;
+    info.textContent = t('JPG · PNG · WebP / 최대 10 MB');
   };
   const open = trigger => { clear(); openDialog(dialog, trigger); };
   container.querySelector('[data-artwork-open]').addEventListener('click', event => open(event.currentTarget));
@@ -594,16 +596,16 @@ function setupArtworkEditor(container, track) {
     clear();
     const version = generation;
     try {
-      if (selected.size > 10 * 1024 ** 2) throw new Error('10 MB 이하의 사진을 선택해 주세요.');
-      if (!/\.(jpe?g|png|webp)$/i.test(selected.name)) throw new Error('JPG, PNG 또는 WebP 사진을 선택해 주세요.');
+      if (selected.size > 10 * 1024 ** 2) throw new Error(t('10 MB 이하의 사진을 선택해 주세요.'));
+      if (!/\.(jpe?g|png|webp)$/i.test(selected.name)) throw new Error(t('JPG, PNG 또는 WebP 사진을 선택해 주세요.'));
       const url = URL.createObjectURL(selected);
       previewUrl = url;
       const image = new Image();
       image.src = url;
       await image.decode();
       if (generation !== version) return;
-      if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error('사진은 4,000만 화소 이하로 선택해 주세요.');
-      image.alt = '선택한 앨범 사진 미리보기';
+      if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error(t('사진은 4,000만 화소 이하로 선택해 주세요.'));
+      image.alt = t('선택한 앨범 사진 미리보기');
       preview.replaceChildren(image);
       info.textContent = `${selected.name} · ${image.naturalWidth} × ${image.naturalHeight} · ${formatBytes(selected.size)}`;
       file = selected;
@@ -611,7 +613,7 @@ function setupArtworkEditor(container, track) {
     } catch (reason) {
       if (generation !== version) return;
       clear();
-      error.textContent = reason instanceof DOMException ? '사진을 읽지 못했습니다. 다른 이미지 파일을 선택해 주세요.' : reason.message;
+      error.textContent = reason instanceof DOMException ? t('사진을 읽지 못했습니다. 다른 이미지 파일을 선택해 주세요.') : t(reason.message);
       error.hidden = false;
     }
   });
@@ -619,28 +621,28 @@ function setupArtworkEditor(container, track) {
     if (!file || busy) return;
     busy = true;
     save.disabled = cancel.disabled = input.disabled = true;
-    save.textContent = '저장 중…';
+    save.textContent = t('저장 중…');
     error.hidden = true;
     try {
       const response = await fetch(`/api/tracks/${track.id}/artwork`, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '사진을 저장하지 못했습니다.');
+      if (!response.ok) throw new Error(result.error || t('사진을 저장하지 못했습니다.'));
       if (container.isConnected && state.selectedTrack.id === track.id) {
         state.selectedTrack.artworkPath = result.artworkPath;
         container.querySelector('[data-detail-cover]').innerHTML = coverMarkup(result);
         lyricsView?.refreshArtwork();
-        container.querySelector('[data-artwork-open]').innerHTML = `${icon('image-plus')} 앨범 사진 변경`;
+        container.querySelector('[data-artwork-open]').innerHTML = t("{0} 앨범 사진 변경", icon('image-plus'));
       }
       dialog.close();
       await refreshState();
     } catch (reason) {
-      error.textContent = reason.message || '사진을 저장하지 못했습니다. 다시 시도해 주세요.';
+      error.textContent = t(reason.message) || t('사진을 저장하지 못했습니다. 다시 시도해 주세요.');
       error.hidden = false;
     } finally {
       busy = false;
       save.disabled = !file;
       cancel.disabled = input.disabled = false;
-      save.textContent = '사진 저장';
+      save.textContent = t('사진 저장');
     }
   });
   return { open, destroy: () => { dialog.close(); clear(); } };
@@ -782,18 +784,18 @@ function setupLyricsView(container) {
     const extra = (title, lines) => lines.length ? `<section class="lyrics-extra"><h3>${title}</h3><p>${escapeHtml(lines.join('\n'))}</p></section>` : '';
     scroll.innerHTML = model.rows.map((row, index) => {
       const tag = model.timed ? 'button' : 'div';
-      return `<${tag} class="lyric-line" ${model.timed ? `type="button" data-lyric-index="${index}" title="${formatTime(row.time)}부터 재생" aria-label="${escapeHtml(`${formatTime(row.time)} · ${row.text || '간주'}${row.translation ? ` · ${row.translation}` : ''}`)}"` : ''}>
-        <span class="lyric-copy"><span class="lyric-original" data-lyric-text="${escapeHtml(row.text || '간주')}"><span>${escapeHtml(row.text || '간주')}</span></span>
+      return `<${tag} class="lyric-line" ${model.timed ? `type="button" data-lyric-index="${index}" title="${escapeHtml(t('{0}부터 재생', formatTime(row.time)))}" aria-label="${escapeHtml(`${formatTime(row.time)} · ${row.text || t('간주')}${row.translation ? ` · ${row.translation}` : ''}`)}"` : ''}>
+        <span class="lyric-copy"><span class="lyric-original" data-lyric-text="${escapeHtml(row.text || t('간주'))}"><span>${escapeHtml(row.text || t('간주'))}</span></span>
         ${row.translation ? `<span class="lyric-translation">${escapeHtml(row.translation)}</span>` : ''}</span></${tag}>`;
-    }).join('') + extra('시간표 없는 원문', model.extraOriginal) + extra('번역 · 줄 연결 필요', model.extraTranslation)
-      || `<div class="lyrics-empty">${icon('file-text')}<h3>아직 가사가 없습니다</h3><button type="button" class="secondary-button" data-add-lyrics>가사 입력</button></div>`;
+    }).join('') + extra(t('시간표 없는 원문'), model.extraOriginal) + extra(t('번역 · 줄 연결 필요'), model.extraTranslation)
+      || localizeMarkup`<div class="lyrics-empty">${icon('file-text')}<h3>아직 가사가 없습니다</h3><button type="button" class="secondary-button" data-add-lyrics>가사 입력</button></div>`;
     buttons = [...scroll.querySelectorAll('[data-lyric-index]')];
     buttons.forEach(button => button.addEventListener('click', async () => {
       try {
         follow = true;
         await playTrack(trackId, model.rows[Number(button.dataset.lyricIndex)].time);
         sync(true);
-      } catch { showToast('이 구간을 재생하지 못했습니다. 음원 파일을 확인해 주세요.'); }
+      } catch { showToast(t('이 구간을 재생하지 못했습니다. 음원 파일을 확인해 주세요.')); }
     }));
     scroll.querySelector('[data-add-lyrics]')?.addEventListener('click', event => trackEditor.open(trackId, event.currentTarget, 'lyricsOriginal'));
     sync(); layout();
@@ -858,20 +860,20 @@ function setupDetailActions(container, track) {
     try {
       const response = await fetch(`/api/tracks/${id}/favorite`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isLifeSong }) });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '최애곡을 저장하지 못했습니다.');
+      if (!response.ok) throw new Error(result.error || t('최애곡을 저장하지 못했습니다.'));
       stateRequest += 1;
       const row = state.tracks.find(song => song.id === id);
       if (row) row.isLifeSong = result.isLifeSong;
       if (state.selectedTrack?.id === id) {
         state.selectedTrack.isLifeSong = result.isLifeSong;
         const action = container.querySelector('[data-favorite]');
-        action.title = result.isLifeSong ? '최애곡에서 해제' : '최애곡에 추가';
+        action.title = result.isLifeSong ? t('최애곡에서 해제') : t('최애곡에 추가');
         action.setAttribute('aria-label', action.title);
         action.setAttribute('aria-pressed', String(result.isLifeSong));
       }
       renderAll();
-      showToast(result.isLifeSong ? '최애곡에 추가했습니다.' : '최애곡에서 해제했습니다.');
-    } catch (error) { showToast(error.message || '최애곡을 저장하지 못했습니다. 다시 시도해 주세요.'); }
+      showToast(result.isLifeSong ? t('최애곡에 추가했습니다.') : t('최애곡에서 해제했습니다.'));
+    } catch (error) { showToast(error.message || t('최애곡을 저장하지 못했습니다. 다시 시도해 주세요.')); }
     finally {
       favoritesInFlight.delete(id); button.disabled = false;
       if (state.selectedTrack?.id === id) container.querySelector('[data-favorite]').disabled = false;
@@ -912,7 +914,7 @@ async function saveNotes(event) {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || '가사를 저장하지 못했습니다.');
+    if (!response.ok) throw new Error(result.error || t('가사를 저장하지 못했습니다.'));
     drafts.saved(id, body);
     saved = true;
     if (state.selectedTrack.id === id) {
@@ -921,13 +923,13 @@ async function saveNotes(event) {
     }
     try {
       await refreshState();
-      showToast('가사 저장됨');
+      showToast(t('가사 저장됨'));
     } catch {
-      showToast('가사를 저장했습니다. 컬렉션은 다시 불러와 주세요.');
+      showToast(t('가사를 저장했습니다. 컬렉션은 다시 불러와 주세요.'));
     }
   } catch (reason) {
     const error = state.selectedTrack?.id === id ? document.querySelector('[data-lyrics-save-error]') : null;
-    const message = reason.message || '저장하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.';
+    const message = t(reason.message) || t('저장하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
     if (error) { error.textContent = message; error.hidden = false; }
     showToast(message);
   }
@@ -946,14 +948,14 @@ async function recordPlayback(id, listenedMs, completed) {
   const response = await fetch(`/api/tracks/${id}/playback`, {
     method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ listenedMs, completed })
   });
-  if (!response.ok) throw new Error('감상 이력 저장 실패');
+  if (!response.ok) throw new Error(t('감상 이력 저장 실패'));
   await refreshState();
 }
 
 async function localRequest(path, body) {
   const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-local-token': state.localToken }, body: JSON.stringify(body) });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || '처리하지 못했습니다.');
+  if (!response.ok) throw new Error(result.error || t('처리하지 못했습니다.'));
   return result;
 }
 
@@ -964,7 +966,7 @@ async function stageSelection(files) {
   const reviewFirst = document.querySelector('#import-review-first').checked;
   let prepared = false;
   try { prepared = await prepareCopySelection(files); }
-  catch (error) { showImportError(error.message || '파일을 준비하지 못했습니다.'); }
+  catch (error) { showImportError(error.message || t('파일을 준비하지 못했습니다.')); }
   finally {
     state.importBusy = false;
     document.querySelectorAll('#import-select input,#import-select textarea,#import-select button').forEach(control => control.disabled = false);
@@ -985,15 +987,15 @@ async function prepareCopySelection(files) {
   const audioExtensions = new Set(['flac', 'alac', 'm4a', 'mp3', 'aac', 'ogg']);
   const audioFiles = files.filter((file) => audioExtensions.has(fileExtension(file.name)));
   const lyricFiles = files.filter((file) => fileExtension(file.name) === 'lrc' && file.size <= 2 * 1024 * 1024);
-  if (audioFiles.length > 500) return showImportError('한 번에 음원 500개 이하를 선택해 주세요.');
-  if (!audioFiles.length) return showImportError('선택한 폴더에서 FLAC, ALAC/M4A, MP3, AAC 또는 OGG 파일을 찾지 못했습니다.');
+  if (audioFiles.length > 500) return showImportError(t('한 번에 음원 500개 이하를 선택해 주세요.'));
+  if (!audioFiles.length) return showImportError(t('선택한 폴더에서 FLAC, ALAC/M4A, MP3, AAC 또는 OGG 파일을 찾지 못했습니다.'));
 
   const progressArea = document.querySelector('#stage-progress');
   const progress = document.querySelector('#upload-progress');
   progressArea.hidden = false;
   progress.max = audioFiles.length;
   progress.value = 0;
-  document.querySelector('#progress-name').textContent = `${audioFiles.length}개 음원 분석 중`;
+  document.querySelector('#progress-name').textContent = t("{0}개 음원 분석 중", audioFiles.length);
   document.querySelector('#progress-value').textContent = `0/${audioFiles.length}`;
 
   const stagedResults = [];
@@ -1003,11 +1005,11 @@ async function prepareCopySelection(files) {
     if (result.status === 'ready') {
       if (stagedResults.some(item => item.staged.checksum === result.staged.checksum)) {
         report.duplicates += 1;
-        report.excluded.push(`${file.name}: 이번 선택에 포함된 동일 파일`);
+        report.excluded.push(t("{0}: 이번 선택에 포함된 동일 파일", file.name));
         await discardImport(result.staged.importId);
       } else { stagedResults.push(result); state.staged.push(result); }
     }
-    else if (result.status === 'duplicate') { report.duplicates += 1; report.excluded.push(`${file.name}: 이미 소장한 동일 파일`); }
+    else if (result.status === 'duplicate') { report.duplicates += 1; report.excluded.push(t("{0}: 이미 소장한 동일 파일", file.name)); }
     else report.errors.push(`${file.name}: ${result.error}`);
     progress.value += 1;
     document.querySelector('#progress-value').textContent = `${progress.value}/${audioFiles.length}`;
@@ -1027,7 +1029,7 @@ async function prepareCopySelection(files) {
       try {
         preferred.lrcText = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await lyricFile.arrayBuffer());
         preferred.lrcSourceName = lyricFile.name; report.lrcCount += 1;
-      } catch { report.errors.push(`${lyricFile.name}: UTF-8 가사를 읽지 못했습니다. 음원은 가사 없이 추가할 수 있습니다.`); }
+      } catch { report.errors.push(t("{0}: UTF-8 가사를 읽지 못했습니다. 음원은 가사 없이 추가할 수 있습니다.", lyricFile.name)); }
     }
     selected.push(preferred);
   }
@@ -1044,14 +1046,14 @@ async function stageOneFile(file) {
     const response = await fetch('/api/stage', { method: 'POST', headers: { 'x-file-name': encodeURIComponent(file.name) }, body: file });
     const result = await response.json();
     if (response.status === 409) return { status: 'duplicate', existingTrack: result.existingTrack };
-    if (!response.ok) return { status: 'error', error: result.error || '분석 실패' };
+    if (!response.ok) return { status: 'error', error: t(result.error) || t('분석 실패') };
     const path = relativeFilePath(file);
     return {
       status: 'ready', file, staged: result, directory: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '',
       trackKey: trackKey(path), lrcText: '', lrcSourceName: ''
     };
   } catch (error) {
-    return { status: 'error', error: error.message || '분석 실패' };
+    return { status: 'error', error: t(error.message) || t('분석 실패') };
   }
 }
 
@@ -1062,35 +1064,35 @@ function showBatchReview() {
   setStep(2);
   const moving = state.staged.some(item => item.move);
   document.querySelector('#move-review-notice').hidden = !moving;
-  document.querySelector('#commit-import').textContent = moving ? `${state.staged.length}곡 이동` : `${state.staged.length}곡 복사하여 추가`;
+  document.querySelector('#commit-import').textContent = moving ? t("{0}곡 이동", state.staged.length) : t("{0}곡 복사하여 추가", state.staged.length);
   document.querySelector('#commit-import').disabled = !state.staged.length;
-  document.querySelector('#review-summary').textContent = state.staged.length ? `${state.staged.length}곡을 추가할 수 있습니다` : '추가할 새 음원이 없습니다';
+  document.querySelector('#review-summary').textContent = state.staged.length ? t("{0}곡을 추가할 수 있습니다", state.staged.length) : t('추가할 새 음원이 없습니다');
   const report = state.importReport;
   if (!state.importOrder?.length) state.importOrder = state.staged.map(item => item.staged.importId);
   report.lrcCount = state.staged.filter(item => item.lrcSourceName).length;
   const details = [
-    report.lrcCount ? `LRC ${report.lrcCount}개 연결` : null,
-    report.alternatives ? `낮은 음질 대안 ${report.alternatives}개 제외` : null,
-    report.duplicates ? `이미 소장한 파일 ${report.duplicates}개 제외` : null,
-    report.errors.length ? `분석 실패 ${report.errors.length}개` : null
+    report.lrcCount ? t("LRC {0}개 연결", report.lrcCount) : null,
+    report.alternatives ? t("낮은 음질 대안 {0}개 제외", report.alternatives) : null,
+    report.duplicates ? t("이미 소장한 파일 {0}개 제외", report.duplicates) : null,
+    report.errors.length ? t("분석 실패 {0}개", report.errors.length) : null
   ].filter(Boolean);
-  document.querySelector('#review-detail').textContent = details.join(' · ') || '가사나 표지가 없어도 추가할 수 있습니다.';
+  document.querySelector('#review-detail').textContent = details.join(' · ') || t('가사나 표지가 없어도 추가할 수 있습니다.');
   const excluded = [...(report.excluded || []), ...report.errors];
-  document.querySelector('#review-exclusions').innerHTML = excluded.length ? `<details class="exclusion-details" ${!state.staged.length ? 'open' : ''}><summary>제외·확인 실패 ${excluded.length}개 · 이유 보기</summary><ul class="result-list">${excluded.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></details>` : '';
+  document.querySelector('#review-exclusions').innerHTML = excluded.length ? localizeMarkup`<details class="exclusion-details" ${!state.staged.length ? 'open' : ''}><summary>제외·확인 실패 ${excluded.length}개 · 이유 보기</summary><ul class="result-list">${excluded.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></details>` : '';
   document.querySelector('#batch-list').innerHTML = state.staged.map((item, index) => {
     const metadata = item.staged.metadata;
-    return `<article class="batch-row">
+    return localizeMarkup`<article class="batch-row">
       <div class="batch-cover">${icon(item.staged.hasArtwork ? 'image-plus' : 'disc')}</div>
       <div class="batch-copy batch-fields"><label>곡명<input data-import-index="${index}" data-import-field="title" value="${escapeHtml(metadata.title)}" required></label><label>가수명<input data-import-index="${index}" data-import-field="artist" value="${escapeHtml(artistName(metadata.artist))}" placeholder="가수명 입력 · 선택"></label></div>
-      <div class="batch-status"><span class="quality-badge">${escapeHtml(qualityText(metadata))}</span><small>${item.lrcSourceName ? `LRC · ${escapeHtml(item.lrcSourceName)}` : 'LRC 없음'} · ${item.staged.hasArtwork ? '내장 표지' : '표지 없음'}</small></div>
+      <div class="batch-status"><span class="quality-badge">${escapeHtml(qualityText(metadata))}</span><small>${item.lrcSourceName ? `LRC · ${escapeHtml(item.lrcSourceName)}` : t('LRC 없음')} · ${item.staged.hasArtwork ? t('내장 표지') : t('표지 없음')}</small></div>
       <details class="batch-extra"><summary>파일·가사 자세히 보기</summary><p>${escapeHtml(item.sourcePath || item.file.name)}</p><div class="batch-lyrics">${item.move
-        ? `<label>LRC 파일 경로<input data-lrc-path="${index}" value="${escapeHtml(item.lrcPath || '')}" placeholder="/Volumes/Music/가사.lrc"></label><button type="button" class="secondary-button" data-link-lrc="${index}">가사 연결</button>`
-        : `<label class="secondary-button file-button">LRC 직접 선택<input type="file" accept=".lrc" data-lrc-file="${index}"></label>`}${item.lrcSourceName ? `<button type="button" class="text-button" data-unlink-lrc="${index}">가사 연결 해제</button>` : ''}<small>${item.move ? '연결된 가사도 음원과 함께 이동합니다.' : '선택한 가사는 복사하여 보관합니다.'}</small></div></details>
+        ? localizeMarkup`<label>LRC 파일 경로<input data-lrc-path="${index}" value="${escapeHtml(item.lrcPath || '')}" placeholder="/Volumes/Music/가사.lrc"></label><button type="button" class="secondary-button" data-link-lrc="${index}">가사 연결</button>`
+        : localizeMarkup`<label class="secondary-button file-button">LRC 직접 선택<input type="file" accept=".lrc" data-lrc-file="${index}"></label>`}${item.lrcSourceName ? localizeMarkup`<button type="button" class="text-button" data-unlink-lrc="${index}">가사 연결 해제</button>` : ''}<small>${item.move ? t('연결된 가사도 음원과 함께 이동합니다.') : t('선택한 가사는 복사하여 보관합니다.')}</small></div></details>
     </article>`;
   }).join('');
   document.querySelectorAll('[data-import-field]').forEach(input => input.addEventListener('input', () => {
     const key = input.dataset.importField;
-    if (key === 'title') input.setCustomValidity(input.value.trim() ? '' : '곡명을 입력해 주세요.');
+    if (key === 'title') input.setCustomValidity(input.value.trim() ? '' : t('곡명을 입력해 주세요.'));
     state.staged[Number(input.dataset.importIndex)].staged.metadata[key] = input.value.trim() || (key === 'artist' ? '알 수 없는 아티스트' : '');
   }));
   document.querySelectorAll('[data-unlink-lrc]').forEach(button => button.addEventListener('click', async () => {
@@ -1110,7 +1112,7 @@ function showBatchReview() {
     try {
       const path = document.querySelector(`[data-lrc-path="${index}"]`).value.trim();
       const result = await localRequest('/api/local-lyrics', { importId: item.staged.importId, path });
-      Object.assign(item, result); showBatchReview(); showToast('가사 파일을 연결했습니다.');
+      Object.assign(item, result); showBatchReview(); showToast(t('가사 파일을 연결했습니다.'));
     } catch (error) { showImportError(error.message); }
     finally { setReviewBusy(false); }
   }));
@@ -1119,7 +1121,7 @@ function showBatchReview() {
     const file = input.files[0]; if (!file) return;
     setReviewBusy(true);
     try {
-      if (!file.name.toLowerCase().endsWith('.lrc') || file.size > 2 * 1024 * 1024) throw new Error('2 MB 이하 LRC 파일을 선택해 주세요.');
+      if (!file.name.toLowerCase().endsWith('.lrc') || file.size > 2 * 1024 * 1024) throw new Error(t('2 MB 이하 LRC 파일을 선택해 주세요.'));
       const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer());
       Object.assign(state.staged[Number(input.dataset.lrcFile)], { lrcText: text, lrcSourceName: file.name });
       showBatchReview();
@@ -1142,7 +1144,7 @@ async function commitBatchImport(event) {
   clearImportError();
   for (const input of document.querySelectorAll('[data-lrc-path]')) {
     const item = state.staged[Number(input.dataset.lrcPath)];
-    if (input.value.trim() !== (item.lrcPath || '')) return showImportError('수정한 LRC 경로의 가사 연결 버튼을 먼저 눌러 주세요.');
+    if (input.value.trim() !== (item.lrcPath || '')) return showImportError(t('수정한 LRC 경로의 가사 연결 버튼을 먼저 눌러 주세요.'));
   }
   state.importBusy = true;
   const button = document.querySelector('#commit-import');
@@ -1155,7 +1157,7 @@ async function commitBatchImport(event) {
   try {
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
-      button.textContent = `서재에 ${item.move ? '이동' : '복사'} 중 · ${index + 1}/${items.length}곡`;
+      button.textContent = t("서재에 {0} 중 · {1}/{2}곡", item.move ? t('이동') : t('복사'), index + 1, items.length);
       progress.textContent = button.textContent;
       try {
         const response = await fetch(item.move ? '/api/local-commit' : '/api/commit', {
@@ -1165,21 +1167,21 @@ async function commitBatchImport(event) {
         });
         const result = await response.json();
         if (response.ok) state.importResults.set(item.staged.importId, result);
-        else item.failure = result.error || '추가하지 못했습니다. 다시 확인해 주세요.';
+        else item.failure = t(result.error) || t('추가하지 못했습니다. 다시 확인해 주세요.');
       } catch {
         item.uncertain = true;
-        item.failure = '완료 여부를 확인하지 못했습니다. 연결을 확인한 뒤 완료 여부를 다시 확인해 주세요.';
+        item.failure = t('완료 여부를 확인하지 못했습니다. 연결을 확인한 뒤 완료 여부를 다시 확인해 주세요.');
       }
     }
     state.staged = items.filter(item => !state.importResults.has(item.staged.importId));
     await reconcileImports();
     showImportResults();
-    try { await refreshState(); } catch { showImportError('컬렉션을 새로 읽지 못했습니다. 연결을 확인하고 완료 여부를 다시 확인해 주세요.'); }
+    try { await refreshState(); } catch { showImportError(t('컬렉션을 새로 읽지 못했습니다. 연결을 확인하고 완료 여부를 다시 확인해 주세요.')); }
   } finally {
     state.importBusy = false;
     controls.forEach(control => control.disabled = false);
     progress.hidden = true;
-    button.textContent = '미완료 파일 추가';
+    button.textContent = t('미완료 파일 추가');
   }
 }
 
@@ -1190,13 +1192,13 @@ async function reconcileImports() {
       if (!response.ok) continue;
       const result = await response.json();
       if (result.status === 'committed') {
-        if (result.recovered && item.move) result.track.moveWarnings = ['서재 보관을 확인했습니다. 원본 제거 여부는 원래 폴더에서 확인해 주세요.'];
+        if (result.recovered && item.move) result.track.moveWarnings = [t('서재 보관을 확인했습니다. 원본 제거 여부는 원래 폴더에서 확인해 주세요.')];
         state.importResults.set(item.staged.importId, result.track);
       } else if (result.status === 'ready') {
         item.uncertain = false;
-        item.failure = '추가되지 않았습니다. 준비한 파일을 다시 확인해 주세요.';
+        item.failure = t('추가되지 않았습니다. 준비한 파일을 다시 확인해 주세요.');
       } else if (result.status === 'missing') {
-        item.failure = '서버에서 준비 상태를 찾지 못했습니다. 컬렉션과 원래 폴더를 확인한 뒤 파일을 다시 선택해 주세요.';
+        item.failure = t('서버에서 준비 상태를 찾지 못했습니다. 컬렉션과 원래 폴더를 확인한 뒤 파일을 다시 선택해 주세요.');
       }
     } catch { /* Keep uncertainty and never resubmit here. */ }
   }
@@ -1213,9 +1215,9 @@ function showImportResults() {
   const unknown = state.staged.filter(item => item.uncertain).length;
   const failed = state.staged.length - unknown;
   document.querySelector('.complete-mark').innerHTML = icon(count ? 'check' : 'alert');
-  document.querySelector('#import-complete h2').textContent = count ? `${count}곡 추가됨` : '추가 결과를 확인해 주세요';
+  document.querySelector('#import-complete h2').textContent = count ? t("{0}곡 추가됨", count) : t('추가 결과를 확인해 주세요');
   const copy = document.querySelector('#complete-copy');
-  copy.textContent = [failed ? `${failed}곡을 추가하지 못했습니다.` : '', unknown ? `${unknown}곡은 완료 여부를 확인하지 못했습니다.` : ''].filter(Boolean).join(' ');
+  copy.textContent = [failed ? t("{0}곡을 추가하지 못했습니다.", failed) : '', unknown ? t("{0}곡은 완료 여부를 확인하지 못했습니다.", unknown) : ''].filter(Boolean).join(' ');
   copy.hidden = !copy.textContent;
   document.querySelector('#complete-tracks').innerHTML = state.importedTracks.map(track => `<li>${escapeHtml(joined(track.title, artistName(track.artist)))}</li>`).join('');
   const warnings = [...(state.importReport?.errors || []), ...(state.importReport?.excluded || []), ...state.staged.filter(item => !item.uncertain).map(item => `${item.file.name}: ${item.failure}`)];
@@ -1228,7 +1230,7 @@ function showImportResults() {
   panel.hidden = !warnings.length; panel.textContent = warnings.join('\n');
   const review = document.querySelector('#review-failed');
   review.hidden = !state.staged.length;
-  review.textContent = unknown ? '완료 여부 다시 확인' : '미완료 파일 다시 확인';
+  review.textContent = unknown ? t('완료 여부 다시 확인') : t('미완료 파일 다시 확인');
   document.querySelector('#play-imported').disabled = !count;
   setStep(3);
 }
@@ -1303,9 +1305,9 @@ function fileExtension(name) {
 function qualityText(metadata) {
   if (metadata.lossless) {
     const detail = [metadata.bitDepth ? `${metadata.bitDepth}-bit` : '', metadata.sampleRate ? `${Number((metadata.sampleRate / 1000).toFixed(1))} kHz` : ''].filter(Boolean).join('/');
-    return `${metadata.format}${detail ? ` ${detail}` : ' 무손실'}`;
+    return `${metadata.format}${detail ? ` ${detail}` : t(' 무손실')}`;
   }
-  return `${metadata.format} ${metadata.bitrate ? `${Math.round(metadata.bitrate / 1000)} kbps` : '비트레이트 미상'}`;
+  return `${metadata.format} ${metadata.bitrate ? `${Math.round(metadata.bitrate / 1000)} kbps` : t('비트레이트 미상')}`;
 }
 
 function setStep(value) {
@@ -1313,7 +1315,7 @@ function setStep(value) {
 }
 
 function showImportError(message) {
-  importError.textContent = message;
+  importError.textContent = t(message);
   importError.hidden = false;
 }
 
@@ -1324,7 +1326,7 @@ function clearImportError() {
 
 function showToast(message) {
   const toast = document.querySelector('#toast');
-  toast.textContent = message;
+  toast.textContent = t(message);
   toast.classList.add('is-visible');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2200);
@@ -1357,14 +1359,14 @@ document.querySelector('#delete-track-confirm').addEventListener('click', async 
   const id = Number(deleteDialog.dataset.trackId);
   const error = document.querySelector('#delete-track-error');
   if (savesInFlight.has(id) || comments.isSaving(id) || trackEditor.isSaving(id)) {
-    error.textContent = '저장이 끝난 뒤 다시 삭제해 주세요.'; error.hidden = false; return;
+    error.textContent = t('저장이 끝난 뒤 다시 삭제해 주세요.'); error.hidden = false; return;
   }
   deletingTrack = true;
   deleteDialog.querySelectorAll('button').forEach(button => button.disabled = true);
   try {
     const response = await fetch(`/api/tracks/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'x-local-token': state.localToken }, body: JSON.stringify({ confirmDeleteFile: true }) });
     const result = await response.json();
-    if (!response.ok) throw Error(result.error || '삭제하지 못했습니다.');
+    if (!response.ok) throw Error(result.error || t('삭제하지 못했습니다.'));
     const editor = document.querySelector('#track-info-dialog');
     if (Number(editor.dataset.trackId) === id && editor.open) editor.close();
     navigate('library');
@@ -1378,9 +1380,9 @@ document.querySelector('#delete-track-confirm').addEventListener('click', async 
     deleteDialog.close();
     await refreshState();
     document.querySelector('.nav-button.is-active')?.focus();
-    showToast(result.cleanupPending ? '곡은 삭제했지만 음원 파일 정리에 실패했습니다. 보관 폴더를 확인해 주세요.' : '곡과 음원 파일을 삭제했습니다.');
+    showToast(result.cleanupPending ? t('곡은 삭제했지만 음원 파일 정리에 실패했습니다. 보관 폴더를 확인해 주세요.') : t('곡과 음원 파일을 삭제했습니다.'));
   } catch (reason) {
-    error.textContent = reason.message; error.hidden = false;
+    error.textContent = t(reason.message); error.hidden = false;
     if (!deleteDialog.open) showToast(reason.message);
   } finally { deletingTrack = false; deleteDialog.querySelectorAll('button').forEach(button => button.disabled = false); }
 });

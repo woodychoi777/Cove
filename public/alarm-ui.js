@@ -1,10 +1,11 @@
+import { localizeMarkup, t } from './i18n.js';
 import { AlarmSession } from './alarm-session.js';
 import { openDialog } from './ui.js';
 import { artistName } from './metadata-display.js';
 
 export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.coveAlarm }) {
   if (window.covePlatform === 'win32') {
-    document.querySelector('.alarm-help').innerHTML = '<summary>실행과 음량 안내</summary><p>Cove가 실행 중일 때 알람이 울립니다. Windows 잠자기 깨우기는 지원하지 않습니다. 알람이 켜져 있으면 창을 닫아도 백그라운드에서 대기하며, 파일 → Cove 종료로 완전히 종료할 수 있습니다.</p><p>실제 소리 크기는 Windows와 출력 장치의 음량에도 영향을 받습니다. 시스템 음량·음소거는 변경하지 않습니다.</p>';
+    document.querySelector('.alarm-help').innerHTML = localizeMarkup`<summary>실행과 음량 안내</summary><p>Cove가 실행 중일 때 알람이 울립니다. Windows 잠자기 깨우기는 지원하지 않습니다. 알람이 켜져 있으면 창을 닫아도 백그라운드에서 대기하며, 파일 → Cove 종료로 완전히 종료할 수 있습니다.</p><p>실제 소리 크기는 Windows와 출력 장치의 음량에도 영향을 받습니다. 시스템 음량·음소거는 변경하지 않습니다.</p>`;
   }
   if (!bridge) return { hasUnsaved: () => false };
   const $ = selector => document.querySelector(selector);
@@ -12,12 +13,12 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
   const picker = $('#alarm-picker-dialog'), ringing = $('#alarm-ringing-dialog');
   const slots = $('#alarm-song-slots'), error = $('#alarm-settings-error');
   let draft, baseline, pickIndex = 0, busy = false, previewRequest = 0, held = null, lastPreview = -1;
-  const labels = ['첫 번째 곡', '두 번째 곡', '세 번째 곡', '알람 후 클래식'];
-  const unwrap = response => { if (!response?.ok) throw Error(response?.error || '알람 연결을 확인해 주세요.'); return response.value; };
+  const labels = [t('첫 번째 곡'), t('두 번째 곡'), t('세 번째 곡'), t('알람 후 클래식')];
+  const unwrap = response => { if (!response?.ok) throw Error(response?.error || t('알람 연결을 확인해 주세요.')); return response.value; };
   const track = id => state.tracks.find(t => t.id === id);
   const selected = i => i === 3 ? draft.classicId : draft.tracks[i];
   const volume = i => i === 3 ? draft.classicVolume : draft.volumes[i];
-  function setError(message) { error.textContent = message; error.hidden = !message; }
+  function setError(message) { error.textContent = t(message); error.hidden = !message; }
   function readControls() { if (!draft) return; draft.enabled = $('#alarm-enabled').checked; draft.time = $('#alarm-time').value; }
   const hasUnsaved = () => { readControls(); return !!draft && JSON.stringify(draft) !== baseline; };
   const session = new AlarmSession({ player, acknowledge: token => bridge.stop(token),
@@ -30,7 +31,7 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
         // The active snapshot may differ from next-day settings.
         const current = track(session.config?.tracks[status.index]) || song;
         $('#alarm-stage-label').textContent = `${status.index + 1} / 3`;
-        $('#alarm-now-title').textContent = current?.title || '곡 확인 중';
+        $('#alarm-now-title').textContent = current?.title || t('곡 확인 중');
         $('#alarm-now-artist').textContent = artistName(current?.artist);
         $('#alarm-ringing-error').textContent = status.error;
         $('#alarm-ringing-error').hidden = !status.error;
@@ -40,7 +41,7 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
       }
       slots.querySelectorAll('[data-alarm-preview]').forEach((b, i) => {
         const active = status.mode === 'preview' && i === lastPreview;
-        b.textContent = active ? '듣기 중지' : '미리 듣기'; b.setAttribute('aria-pressed', String(active));
+        b.textContent = active ? t('듣기 중지') : t('미리 듣기'); b.setAttribute('aria-pressed', String(active));
       });
     }
   });
@@ -52,18 +53,18 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
       const choose = document.createElement('button'); choose.type = 'button'; choose.className = 'alarm-song-choice';
       choose.dataset.alarmChoose = index;
       const song = track(selected(index));
-      const title = document.createElement('strong'); title.textContent = song?.title || (selected(index) ? '곡을 다시 선택해 주세요' : '곡 선택');
+      const title = document.createElement('strong'); title.textContent = song?.title || (selected(index) ? t('곡을 다시 선택해 주세요') : t('곡 선택'));
       const artist = document.createElement('small'); artist.textContent = artistName(song?.artist);
-      choose.append(title, artist); choose.setAttribute('aria-label', `${label} 선택: ${title.textContent}`);
-      choose.addEventListener('click', () => { session.cancel(); pickIndex = index; $('#alarm-picker-title').textContent = `${label} 선택`; $('#alarm-song-search').value = ''; renderSearch(); openDialog(picker, choose); $('#alarm-song-search').focus(); });
+      choose.append(title, artist); choose.setAttribute('aria-label', t("{0} 선택: {1}", label, title.textContent));
+      choose.addEventListener('click', () => { session.cancel(); pickIndex = index; $('#alarm-picker-title').textContent = t("{0} 선택", label); $('#alarm-song-search').value = ''; renderSearch(); openDialog(picker, choose); $('#alarm-song-search').focus(); });
       const controls = document.createElement('div'); controls.className = 'alarm-slot-controls';
-      const field = document.createElement('label'); field.textContent = '음량';
-      const slider = document.createElement('input'); slider.type = 'range'; slider.min = '1'; slider.max = '100'; slider.value = Math.round(volume(index)*100); slider.setAttribute('aria-label', `${label} 음량`);
+      const field = document.createElement('label'); field.textContent = t('음량');
+      const slider = document.createElement('input'); slider.type = 'range'; slider.min = '1'; slider.max = '100'; slider.value = Math.round(volume(index)*100); slider.setAttribute('aria-label', t("{0} 음량", label));
       const output = document.createElement('output'); output.textContent = `${slider.value}%`;
       slider.addEventListener('input', () => { const value = Number(slider.value)/100; if (index===3) draft.classicVolume=value; else draft.volumes[index]=value; output.textContent = `${slider.value}%`; if (session.mode === 'preview' && lastPreview === index) player.volume=value; });
       field.append(slider, output);
-      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'text-button'; preview.textContent = '미리 듣기'; preview.dataset.alarmPreview = index; preview.disabled = !song;
-      preview.setAttribute('aria-label', `${label} 미리 듣기`);
+      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'text-button'; preview.textContent = t('미리 듣기'); preview.dataset.alarmPreview = index; preview.disabled = !song;
+      preview.setAttribute('aria-label', t("{0} 미리 듣기", label));
       preview.addEventListener('click', async () => {
         const request = ++previewRequest; setError('');
         if (session.mode === 'preview' && lastPreview === index) { session.cancel(); return; }
@@ -88,7 +89,7 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
       b.addEventListener('click', () => { if(pickIndex===3) draft.classicId=song.id;else draft.tracks[pickIndex]=song.id;picker.close();renderSlots();slots.querySelector(`[data-alarm-choose="${pickIndex}"]`).focus(); });
       results.append(b);
     }
-    if (!matches.length) { const p=document.createElement('p');p.textContent='일치하는 소장곡이 없습니다.';results.append(p); }
+    if (!matches.length) { const p=document.createElement('p');p.textContent=t('일치하는 소장곡이 없습니다.');results.append(p); }
   }
   button.hidden = false;
   button.addEventListener('click', async () => {
@@ -96,7 +97,7 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
       const data = unwrap(await bridge.get());
       if (!draft || JSON.stringify(draft) === baseline) { draft=structuredClone(data.config);baseline=JSON.stringify(draft); }
       $('#alarm-enabled').checked=draft.enabled;$('#alarm-time').value=draft.time;
-      $('#alarm-wake-status').textContent=data.wake.message;renderSlots();setError('');
+      $('#alarm-wake-status').textContent=t(data.wake.message);renderSlots();setError('');
       $('#settings-dialog').close();openDialog(settings,button);
     } catch(e) { toast(e.message); }
   });
@@ -106,9 +107,9 @@ export function setupAlarmUI({ player, state, openTrack, toast, bridge = window.
     busy=true;const controls=[...form.querySelectorAll('input,button')];const disabled=controls.map(el=>el.disabled);controls.forEach(el=>el.disabled=true);
     try {
       const result=unwrap(await bridge.save(structuredClone(draft)));
-      draft=structuredClone(result.config);baseline=JSON.stringify(draft);$('#alarm-wake-status').textContent=result.wake.message;
-      settings.close();toast(draft.enabled ? `${draft.time} 알람을 설정했습니다.` : '알람을 껐습니다.');
-    }catch(e){setError(e.message);try{const data=unwrap(await bridge.get());$('#alarm-wake-status').textContent=data.wake.message;}catch{}}
+      draft=structuredClone(result.config);baseline=JSON.stringify(draft);$('#alarm-wake-status').textContent=t(result.wake.message);
+      settings.close();toast(draft.enabled ? t("{0} 알람을 설정했습니다.", draft.time) : t('알람을 껐습니다.'));
+    }catch(e){setError(e.message);try{const data=unwrap(await bridge.get());$('#alarm-wake-status').textContent=t(data.wake.message);}catch{}}
     finally{busy=false;controls.forEach((el,i)=>el.disabled=disabled[i]);}
   });
   settings.addEventListener('close',()=>{readControls();previewRequest++;if(session.mode==='preview')session.cancel();});

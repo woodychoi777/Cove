@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { TrackDrafts } from './drafts.js';
 
 export const commentText = track => ['meaning', 'favoriteReason', 'memory'].map(key => track[key] || '').filter(value => value !== '').join('\n\n');
@@ -61,13 +62,13 @@ export function setupComments({ getTrack, onSaved, toast }) {
     try {
       const response = await fetch(`/api/tracks/${id}/comments`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submitted) });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '코멘트를 저장하지 못했습니다.');
+      if (!response.ok) throw new Error(result.error || t('코멘트를 저장하지 못했습니다.'));
       drafts.saved(id, submitted);
       onSaved(result);
-      toast('코멘트 저장됨');
+      toast(t('코멘트 저장됨'));
     } catch (reason) {
       drafts.failed(id);
-      errors.set(id, reason.message || '연결을 확인하고 다시 저장해 주세요.');
+      errors.set(id, t(reason.message) || t('연결을 확인하고 다시 저장해 주세요.'));
       if (!isOpen() || selectedId !== id) toast(errors.get(id));
     } finally {
       inFlight.delete(id);

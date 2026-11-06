@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 // One local SVG family; no remote assets or runtime icon dependency.
 const paths = {
   'cove-brand': '<g transform="rotate(0 48 48)"><path d="M21 52V43a27 27 0 0 1 54 0v9" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M28 35c3-8 10-12 20-12s17 4 20 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><g transform="rotate(-10 24 60)"><path d="M23 43v11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="14" y="51" width="15" height="29" rx="7" fill="currentColor"/><rect x="32" y="54" width="6" height="23" rx="3" fill="currentColor"/></g><g transform="rotate(10 72 60)"><path d="M73 43v11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="67" y="51" width="15" height="29" rx="7" fill="currentColor"/><rect x="58" y="54" width="6" height="23" rx="3" fill="currentColor"/></g></g>',
@@ -38,7 +39,7 @@ export function hydrateIcons(root = document) { root.querySelectorAll('[data-ico
 export function setPlayButton(button, playing, loading = false) {
   const name = loading ? 'loader' : playing ? 'pause' : 'play';
   if (button.dataset.iconState !== name) { button.innerHTML = icon(name); button.dataset.iconState = name; }
-  const label = playing ? '일시정지' : '재생';
-  button.setAttribute('aria-label', label); button.title = loading ? '불러오는 중' : label;
+  const label = playing ? t('일시정지') : t('재생');
+  button.setAttribute('aria-label', label); button.title = loading ? t('불러오는 중') : label;
   button.setAttribute('aria-busy', String(loading));
 }

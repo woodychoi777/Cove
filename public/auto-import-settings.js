@@ -1,3 +1,4 @@
+import { locale, t } from './i18n.js';
 export function setupAutoImportSettings({ getToken, onStatus }) {
   const $ = id => document.getElementById(id);
   const toggle = $('auto-import-toggle'), help = $('auto-import-setting-help'), error = $('auto-import-setting-error');
@@ -10,17 +11,17 @@ export function setupAutoImportSettings({ getToken, onStatus }) {
       method, headers: { 'Content-Type': 'application/json', 'x-local-token': getToken() }, body: JSON.stringify(body)
     });
     const value = await response.json();
-    if (!response.ok) throw Error(value.error || '자동 추가 설정을 확인해 주세요.');
+    if (!response.ok) throw Error(value.error || t('자동 추가 설정을 확인해 주세요.'));
     return value;
   }
-  function showError(message = '') { error.textContent = message; error.hidden = !message; }
+  function showError(message = '') { error.textContent = t(message); error.hidden = !message; }
   function render(value) {
     status = value;
     toggle.checked = Boolean(value.enabled);
     mode.value = value.mode || 'copy';
-    choose.textContent = value.configured ? '폴더 변경' : '폴더 지정';
-    $('auto-import-directory').textContent = value.configured ? value.directory : '감지 폴더를 지정해 주세요.';
-    help.textContent = value.processing ? '추가 중 · ' + value.processing : value.pendingFiles ? value.pendingFiles + '개 파일의 복사가 끝나기를 기다립니다.' : value.enabled ? '하위 폴더도 확인합니다. 파일 복사가 끝나면 ' + (value.mode === 'move' ? '검증 후 원본을 이동합니다.' : '서재에 복사합니다.') : '태그가 없으면 파일명을 곡명으로 사용합니다. 곡 정보는 추가 후 수정할 수 있습니다.';
+    choose.textContent = value.configured ? t('폴더 변경') : t('폴더 지정');
+    $('auto-import-directory').textContent = value.configured ? value.directory : t('감지 폴더를 지정해 주세요.');
+    help.textContent = value.processing ? t('추가 중 · ') + value.processing : value.pendingFiles ? value.pendingFiles + t('개 파일의 복사가 끝나기를 기다립니다.') : value.enabled ? t('하위 폴더도 확인합니다. 파일 복사가 끝나면 ') + (value.mode === 'move' ? t('검증 후 원본을 이동합니다.') : t('서재에 복사합니다.')) : t('태그가 없으면 파일명을 곡명으로 사용합니다. 곡 정보는 추가 후 수정할 수 있습니다.');
     $('auto-import-retry').hidden = !value.enabled;
     showError(value.error || '');
     onStatus(value);
@@ -36,7 +37,7 @@ export function setupAutoImportSettings({ getToken, onStatus }) {
     if (busy || candidate) return;
     const current = ++generation;
     try { const value = await request(); if (current === generation && !busy) render(value); }
-    catch { if (current === generation) showError('자동 추가 상태를 확인하지 못했습니다. 다시 설정을 열어 주세요.'); }
+    catch { if (current === generation) showError(t('자동 추가 상태를 확인하지 못했습니다. 다시 설정을 열어 주세요.')); }
     toggle.disabled = !status || busy;
   }
   async function prepare(directory) {
@@ -45,8 +46,8 @@ export function setupAutoImportSettings({ getToken, onStatus }) {
       const value = await request('/preview', { directory });
       if (!dialog.open) return;
       candidate = { directory: value.directory, mode: selectedMode, enabled: true };
-      $('auto-import-preview-copy').textContent = value.directory + '\n기존 음악 ' + value.fileCount.toLocaleString('ko') + '곡 · ' + (value.totalBytes / 1024 ** 2).toLocaleString('ko', { maximumFractionDigits: 1 }) + ' MB · 하위 폴더 포함';
-      $('auto-import-preview-mode').textContent = selectedMode === 'move' ? '이동 · 보관본과 가사를 검증한 뒤 원본 파일을 제거합니다.' : '복사 · 기존 음악도 추가하며 원본 파일은 남깁니다. 같은 파일은 중복 추가하지 않습니다.';
+      $('auto-import-preview-copy').textContent = value.directory + t('\n기존 음악 ') + value.fileCount.toLocaleString(locale) + t('곡 · ') + (value.totalBytes / 1024 ** 2).toLocaleString(locale, { maximumFractionDigits: 1 }) + t(' MB · 하위 폴더 포함');
+      $('auto-import-preview-mode').textContent = selectedMode === 'move' ? t('이동 · 보관본과 가사를 검증한 뒤 원본 파일을 제거합니다.') : t('복사 · 기존 음악도 추가하며 원본 파일은 남깁니다. 같은 파일은 중복 추가하지 않습니다.');
       preview.hidden = false; $('auto-import-preview-confirm').focus();
     });
   }
@@ -55,7 +56,7 @@ export function setupAutoImportSettings({ getToken, onStatus }) {
     let selection;
     await run(async () => {
       const response = await window.coveFolders.chooseAutoImport();
-      if (!response?.ok) throw Error(response?.error || '폴더를 선택하지 못했습니다.');
+      if (!response?.ok) throw Error(response?.error || t('폴더를 선택하지 못했습니다.'));
       selection = response.value;
     });
     if (selection?.directory) await prepare(selection.directory);
@@ -83,13 +84,13 @@ export function setupAutoImportSettings({ getToken, onStatus }) {
   folder.hidden = !window.coveFolders;
   folder.addEventListener('click', () => run(async () => {
     const response = await window.coveFolders.openAutoImport();
-    if (!response?.ok) throw Error(response?.error || '지정 폴더를 열지 못했습니다.');
+    if (!response?.ok) throw Error(response?.error || t('지정 폴더를 열지 못했습니다.'));
   }));
   const openLibrary = $('library-folder-open');
   openLibrary.hidden = !window.coveFolders?.openLibrary;
   openLibrary.addEventListener('click', async () => {
     const result = await window.coveFolders.openLibrary();
-    $('library-folder-error').textContent = result?.error || '';
+    $('library-folder-error').textContent = t(result?.error) || '';
     $('library-folder-error').hidden = Boolean(result?.ok);
   });
   $('alarm-settings-section').hidden = !window.coveAlarm;

@@ -1,3 +1,4 @@
+import { localizeMarkup, t } from './i18n.js';
 import { icon } from './icons.js';
 import { openDialog, menuTrigger, bindContextTarget, closeMenus } from './ui.js';
 import { artistName, metadataText } from './metadata-display.js';
@@ -30,9 +31,9 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
   async function request(path = '', method = 'GET', body) {
     let response;
     try { response = await fetch('/api/playlists' + path, { method, headers: { 'Content-Type': 'application/json', 'x-local-token': state.localToken }, ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15000) }); }
-    catch { throw new Error('연결을 확인하고 다시 시도해 주세요.'); }
+    catch { throw new Error(t('연결을 확인하고 다시 시도해 주세요.')); }
     const value = await response.json();
-    if (!response.ok) throw Object.assign(new Error(value.error || '플레이리스트를 저장하지 못했습니다.'), value);
+    if (!response.ok) throw Object.assign(new Error(value.error || t('플레이리스트를 저장하지 못했습니다.')), value);
     return value;
   }
   async function refresh() {
@@ -42,7 +43,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
     generation++; invalidate(); state.playlists = rows; render();
   }
   function error(scope, reason) {
-    $(scope + '-error').textContent = reason.message; $(scope + '-error').hidden = false;
+    $(scope + '-error').textContent = t(reason.message); $(scope + '-error').hidden = false;
     $(scope + '-reload').hidden = reason.code !== 'REVISION_CONFLICT';
     if (reason.current) apply(reason.current);
     if (reason.code === 'NOT_FOUND') refresh().then(() => { if ($('playlist-target-dialog').open) renderTargets(); }).catch(() => {});
@@ -90,12 +91,12 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
   function openName(row = null) {
     nameTarget = row ? { ...row } : null; nameDone = false; clearError('playlist-name');
     const names = new Set((state.playlists || []).map(row => row.name.toLocaleLowerCase('ko')));
-    let proposal = '새 플레이리스트', suffix = 2;
-    while (names.has(proposal.toLocaleLowerCase('ko'))) proposal = `새 플레이리스트 ${suffix++}`;
+    let proposal = t('새 플레이리스트'), suffix = 2;
+    while (names.has(proposal.toLocaleLowerCase('ko'))) proposal = t("새 플레이리스트 {0}", suffix++);
     nameInitial = row?.name || proposal;
-    $('playlist-name-heading').textContent = row ? '이름 변경' : '새 플레이리스트';
+    $('playlist-name-heading').textContent = row ? t('이름 변경') : t('새 플레이리스트');
     $('playlist-name-form').elements.name.value = nameInitial;
-    $('playlist-name-form').querySelector('.primary-button').textContent = row ? '저장' : '만들기';
+    $('playlist-name-form').querySelector('.primary-button').textContent = row ? t('저장') : t('만들기');
     const trigger = row ? tabFor(row.id) : $('playlist-create');
     $('settings-dialog').close(); closeMenus(); openDialog($('playlist-name-dialog'), trigger);
     $('playlist-name-form').elements.name.focus(); $('playlist-name-form').elements.name.select();
@@ -106,7 +107,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
   $('playlist-name-form').addEventListener('submit', async event => {
     event.preventDefault(); const dialog = $('playlist-name-dialog'); if (isBusy(dialog)) return;
     const value = event.currentTarget.elements.name.value.trim();
-    if (!value || value.length > 100) { error('playlist-name', new Error('이름을 1~100자로 입력해 주세요.')); event.currentTarget.elements.name.focus(); return; }
+    if (!value || value.length > 100) { error('playlist-name', new Error(t('이름을 1~100자로 입력해 주세요.'))); event.currentTarget.elements.name.focus(); return; }
     busy(dialog, true); clearError('playlist-name');
     try {
       const result = nameTarget ? await request('/' + nameTarget.id, 'PATCH', { name: value, revision: nameTarget.revision }) : await request('', 'POST', { name: value });
@@ -129,8 +130,8 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
     const tracks = pick.tracks.filter(row => `${row.title} ${metadataText(row)}`.toLocaleLowerCase('ko').includes(query));
     $('playlist-add-list').innerHTML = tracks.map(row => {
       const included = pick.base.trackIds.includes(row.id);
-      return `<label class="playlist-pick-row"><input type="checkbox" data-pick-track="${row.id}" ${included ? 'checked disabled' : pick.ids.has(row.id) ? 'checked' : ''}>${cover(row)}<span><strong>${esc(row.title)}</strong>${artistName(row.artist) ? `<small>${esc(artistName(row.artist))}</small>` : ''}</span>${included ? '<small>추가됨</small>' : ''}</label>`;
-    }).join('') || (pick.tracks.length ? '<p>검색 결과가 없습니다.</p>' : '');
+      return `<label class="playlist-pick-row"><input type="checkbox" data-pick-track="${row.id}" ${included ? 'checked disabled' : pick.ids.has(row.id) ? 'checked' : ''}>${cover(row)}<span><strong>${esc(row.title)}</strong>${artistName(row.artist) ? `<small>${esc(artistName(row.artist))}</small>` : ''}</span>${included ? localizeMarkup`<small>추가됨</small>` : ''}</label>`;
+    }).join('') || (pick.tracks.length ? localizeMarkup`<p>검색 결과가 없습니다.</p>` : '');
     $('playlist-add-list').querySelectorAll('[data-pick-track]').forEach(input => input.addEventListener('change', () => {
       const id = Number(input.dataset.pickTrack); if (input.checked) pick.ids.add(id); else pick.ids.delete(id); pickCount();
     }));
@@ -140,7 +141,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
   }
   function pickCount() {
     const count = [...pick.ids].filter(id => !pick.base.trackIds.includes(id)).length;
-    $('playlist-add-save').textContent = count ? `${count}곡 추가` : '추가'; $('playlist-add-save').disabled = !count;
+    $('playlist-add-save').textContent = count ? t("{0}곡 추가", count) : t('추가'); $('playlist-add-save').disabled = !count;
   }
   function openPick() {
     const base = selected(); if (!base) return;
@@ -168,13 +169,13 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
 
   function renderTargets() {
     const rows = state.playlists || [];
-    $('playlist-target-list').innerHTML = rows.map(row => `<button type="button" class="playlist-target-row" data-target-playlist="${row.id}" title="${esc(row.name)}" ${row.trackIds.includes(targetSong.id) ? 'disabled' : ''}><span>${esc(row.name)}</span>${row.trackIds.includes(targetSong.id) ? '<small>추가됨</small>' : ''}</button>`).join('');
+    $('playlist-target-list').innerHTML = rows.map(row => `<button type="button" class="playlist-target-row" data-target-playlist="${row.id}" title="${esc(row.name)}" ${row.trackIds.includes(targetSong.id) ? 'disabled' : ''}><span>${esc(row.name)}</span>${row.trackIds.includes(targetSong.id) ? localizeMarkup`<small>추가됨</small>` : ''}</button>`).join('');
     $('playlist-target-empty').hidden = $('playlist-settings-link').hidden = !!rows.length;
     $('playlist-target-list').querySelectorAll('[data-target-playlist]').forEach(button => button.addEventListener('click', async () => {
       const dialog = $('playlist-target-dialog'); if (isBusy(dialog)) return;
       const base = state.playlists.find(row => row.id === Number(button.dataset.targetPlaylist)), id = targetSong.id;
       busy(dialog, true); clearError('playlist-target');
-      try { apply(await request('/' + base.id, 'PATCH', { revision: base.revision, addTrackIds: [id] })); dialog.close(); render(); toast('플레이리스트에 추가했습니다.'); }
+      try { apply(await request('/' + base.id, 'PATCH', { revision: base.revision, addTrackIds: [id] })); dialog.close(); render(); toast(t('플레이리스트에 추가했습니다.')); }
       catch (reason) { error('playlist-target', reason); }
       finally { busy(dialog, false); if (dialog.open) renderTargets(); }
     }));
@@ -225,13 +226,13 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
   }
   function rowActions(id) {
     const edit = editing(); if (!edit) return '';
-    const index = edit.ids.indexOf(id), title = esc(state.tracks.find(row => row.id === id)?.title || '곡');
-    return `<div class="song-more playlist-edit-actions"><button type="button" class="icon-button" data-playlist-up="${id}" aria-label="${title} 위로 이동" ${index === 0 || edit.busy ? 'disabled' : ''}>${icon('arrow-up')}</button><button type="button" class="icon-button" data-playlist-down="${id}" aria-label="${title} 아래로 이동" ${index === edit.ids.length - 1 || edit.busy ? 'disabled' : ''}>${icon('arrow-down')}</button><button type="button" class="icon-button" data-playlist-remove="${id}" aria-label="${title} 목록에서 빼기" ${edit.busy ? 'disabled' : ''}>${icon('minus')}</button></div>`;
+    const index = edit.ids.indexOf(id), title = esc(state.tracks.find(row => row.id === id)?.title || t('곡'));
+    return localizeMarkup`<div class="song-more playlist-edit-actions"><button type="button" class="icon-button" data-playlist-up="${id}" aria-label="${title} 위로 이동" ${index === 0 || edit.busy ? 'disabled' : ''}>${icon('arrow-up')}</button><button type="button" class="icon-button" data-playlist-down="${id}" aria-label="${title} 아래로 이동" ${index === edit.ids.length - 1 || edit.busy ? 'disabled' : ''}>${icon('arrow-down')}</button><button type="button" class="icon-button" data-playlist-remove="${id}" aria-label="${title} 목록에서 빼기" ${edit.busy ? 'disabled' : ''}>${icon('minus')}</button></div>`;
   }
 
   $('playlist-delete').addEventListener('click', () => {
     const target = state.playlists.find(row => row.id === menuTarget); if (!target) return;
-    deleteTarget = { ...target }; $('playlist-delete-name').textContent = `‘${deleteTarget.name}’ 목록을 삭제할까요?`; clearError('playlist-delete');
+    deleteTarget = { ...target }; $('playlist-delete-name').textContent = t("‘{0}’ 목록을 삭제할까요?", deleteTarget.name); clearError('playlist-delete');
     closeMenus(); openDialog($('playlist-delete-dialog'), tabFor(deleteTarget.id));
   });
   $('playlist-delete-confirm').addEventListener('click', async () => {
@@ -242,7 +243,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
     finally { busy(dialog, false); }
   });
   $('playlist-delete-reload').addEventListener('click', async () => {
-    try { deleteTarget = await request('/' + deleteTarget.id); apply(deleteTarget); $('playlist-delete-name').textContent = `‘${deleteTarget.name}’ 목록을 삭제할까요?`; clearError('playlist-delete'); render(); }
+    try { deleteTarget = await request('/' + deleteTarget.id); apply(deleteTarget); $('playlist-delete-name').textContent = t("‘{0}’ 목록을 삭제할까요?", deleteTarget.name); clearError('playlist-delete'); render(); }
     catch (reason) { error('playlist-delete', reason); }
   });
   tabs.addEventListener('scroll', () => {
@@ -254,7 +255,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
     const current = selected(), edit = editing(), rows = state.playlists || [];
     const options = current && !rows.some(row => row.id === current.id) ? [...rows, current] : rows;
     const focusedId = document.activeElement?.closest('#playlist-tabs [role="tab"]')?.dataset.playlistId;
-    const markup = [{id:null,name:'전체 음악'}, ...options].map(row => `<button type="button" role="tab" id="collection-tab-${row.id ?? 'all'}" data-playlist-id="${row.id ?? ''}" aria-controls="collection-panel" title="${esc(row.name)}">${esc(row.name)}</button>`).join('');
+    const markup = [{id:null,name:t('전체 음악')}, ...options].map(row => `<button type="button" role="tab" id="collection-tab-${row.id ?? 'all'}" data-playlist-id="${row.id ?? ''}" aria-controls="collection-panel" title="${esc(row.name)}">${esc(row.name)}</button>`).join('');
     const replaced = tabsMarkup !== markup;
     if (replaced) {
       closeMenus(); tabs.innerHTML = markup; tabsMarkup = markup;
@@ -266,7 +267,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
           const row = state.playlists.find(row => row.id === menuTarget); if (!row) return false;
           revealTab(tab);
           $('playlist-menu')._tabsLeft = tabs.scrollLeft;
-          $('playlist-menu').setAttribute('aria-label', `${row.name} 플레이리스트 메뉴`);
+          $('playlist-menu').setAttribute('aria-label', t("{0} 플레이리스트 메뉴", row.name));
           return true;
         } });
       });
@@ -294,7 +295,7 @@ export function setupPlaylists({ state, render, navigate, invalidate, toast, esc
     if (notice) $('playlist-notice').querySelector('p').textContent = notice.message;
     $('playlist-reload').hidden = notice?.code !== 'REVISION_CONFLICT';
     const tracks = new Map(state.tracks.map(row => [row.id, row]));
-    return current ? (edit?.ids || current.trackIds).map(id => tracks.get(id) || { id, title: '서재에서 찾을 수 없는 곡', missing: true }) : state.tracks;
+    return current ? (edit?.ids || current.trackIds).map(id => tracks.get(id) || { id, title: t('서재에서 찾을 수 없는 곡'), missing: true }) : state.tracks;
   }
   return { selectIndex(index) {
     const tab = tabs.querySelectorAll('[role="tab"]')[index];

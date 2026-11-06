@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 // Display only: never normalize the stored identity or import metadata.
 function known(value, fallback) {
   const text = String(value ?? '').trim();
@@ -10,5 +12,6 @@ export const metadataText = track => joined(artistName(track.artist), albumName(
 
 // A display-only badge; the saved song title and exact player time stay intact.
 export function longTrackLabel(durationMs) {
-  return Number.isFinite(durationMs) && durationMs >= 600000 ? '긴 음악' : '';
+  return Number.isFinite(durationMs) && durationMs >= 600000 ? t('긴 음악') : '';
 }
+

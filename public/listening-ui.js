@@ -1,3 +1,4 @@
+import { localizeMarkup, t } from './i18n.js';
 import { createDailyRecommendations, localDateKey } from './daily-recommendations.js';
 import { icon, setPlayButton } from './icons.js';
 import { artistName, joined, metadataText } from './metadata-display.js';
@@ -14,7 +15,7 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
   const post = async (path, body) => {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || '저장하지 못했습니다.');
+    if (!response.ok) throw new Error(result.error || t('저장하지 못했습니다.'));
     return result;
   };
   let storage;
@@ -26,13 +27,13 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
   function songRow(song, card = false) {
     const label = esc(joined(song.title, artistName(song.artist)));
     const copy = `<strong>${esc(song.title)}</strong><small ${artistName(song.artist) ? '' : 'hidden'}>${esc(artistName(song.artist))}</small>`;
-    const append = `<div class="song-more"><button type="button" class="icon-button" data-quick-append="${song.id}" aria-label="${esc(song.title)} 대기열 끝에 추가" title="대기열 끝에 추가">${icon('plus')}</button></div>`;
-    if (card) return `<article class="collection-row rediscovery-card" data-current-id="${song.id}"><button type="button" class="recommendation-cover" data-row-play="${song.id}" aria-label="${label} 듣기">${coverMarkup(song)}</button><div class="recommendation-info"><button type="button" class="collection-play recommendation-copy" data-row-play="${song.id}" aria-label="${label} 듣기" title="${label}">${copy}</button>${append}</div></article>`;
-    return `<article class="collection-row home-song" data-current-id="${song.id}"><button type="button" class="collection-play" data-row-play="${song.id}" aria-label="${label} 듣기" title="${esc(joined(song.title, metadataText(song)))}"><span class="collection-song">${coverMarkup(song)}<span>${copy}</span></span></button>${append}</article>`;
+    const append = localizeMarkup`<div class="song-more"><button type="button" class="icon-button" data-quick-append="${song.id}" aria-label="${esc(song.title)} 대기열 끝에 추가" title="대기열 끝에 추가">${icon('plus')}</button></div>`;
+    if (card) return localizeMarkup`<article class="collection-row rediscovery-card" data-current-id="${song.id}"><button type="button" class="recommendation-cover" data-row-play="${song.id}" aria-label="${label} 듣기">${coverMarkup(song)}</button><div class="recommendation-info"><button type="button" class="collection-play recommendation-copy" data-row-play="${song.id}" aria-label="${label} 듣기" title="${label}">${copy}</button>${append}</div></article>`;
+    return localizeMarkup`<article class="collection-row home-song" data-current-id="${song.id}"><button type="button" class="collection-play" data-row-play="${song.id}" aria-label="${label} 듣기" title="${esc(joined(song.title, metadataText(song)))}"><span class="collection-song">${coverMarkup(song)}<span>${copy}</span></span></button>${append}</article>`;
   }
   function bindRows(root, songs, source) {
     root.querySelectorAll('[data-quick-append]').forEach(button => button.addEventListener('click', () => {
-      player.enqueue(Number(button.dataset.quickAppend)); toast('대기열에 추가했습니다');
+      player.enqueue(Number(button.dataset.quickAppend)); toast(t('대기열에 추가했습니다'));
     }));
     bindRowPlayback(root, id => playList(songs, source, id, false, true));
   }
@@ -55,16 +56,16 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
       && stateRequestedAt >= activationRequestedAt && localDateKey(stateRequestedAt) === localDateKey();
     const recommendations = daily.update(state.tracks, { refreshDate });
     if (refreshDate) refreshRecommendationDate = false;
-    renderBlock(document.querySelector('#favorites-list'), recommendations.favorites, '나의 최애곡', '최애곡을 추가해 보세요', true);
+    renderBlock(document.querySelector('#favorites-list'), recommendations.favorites, t('나의 최애곡'), t('최애곡을 추가해 보세요'), true);
     const rediscovery = document.querySelector('#rediscovery-list');
     const section = rediscovery.closest('section');
     if (!recommendations.rediscovery.length && section.contains(document.activeElement)) document.querySelector('#favorites-heading').focus({ preventScroll: true });
     section.hidden = !recommendations.rediscovery.length;
-    renderBlock(rediscovery, recommendations.rediscovery, '오랜만에 꺼내는 곡', '', true);
+    renderBlock(rediscovery, recommendations.rediscovery, t('오랜만에 꺼내는 곡'), '', true);
   }
   function renderRecentListening() {
     const songs = (state.recentListening || []).map(row => track(row.id)).filter(Boolean);
-    renderBlock(document.querySelector('#recent-listening-list'), songs, '최근 많이 들은 곡', '아직 감상 기록이 없습니다');
+    renderBlock(document.querySelector('#recent-listening-list'), songs, t('최근 많이 들은 곡'), t('아직 감상 기록이 없습니다'));
   }
   function activateHome() { refreshRecommendationDate = true; activationRequestedAt = Date.now(); }
   function onActivate() {
@@ -83,8 +84,8 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
     const action = ['play', 'up', 'down', 'remove'].find(name => focused.hasAttribute?.(`data-queue-${name}`));
     root.innerHTML = player.queue.length ? player.queue.map((row, index) => {
       const song = track(row.trackId);
-      return `<article class="listening-row ${index === player.index ? 'is-queued-current' : ''}" data-entry-key="${row.key}"><span class="queue-number">${index + 1}</span>${song ? coverMarkup(song) : icon('disc')}<button class="song-link" data-queue-play="${index}"><strong>${esc(song?.title || '사용할 수 없는 곡')}</strong><small>${esc(joined(artistName(song?.artist), index === player.index ? '현재 곡' : ''))}</small></button><div class="row-actions"><button class="icon-button" data-queue-up="${index}" aria-label="${index + 1}번 곡 위로" title="위로" ${index === 0 ? 'disabled' : ''}>${icon('arrow-up')}</button><button class="icon-button" data-queue-down="${index}" aria-label="${index + 1}번 곡 아래로" title="아래로" ${index === player.queue.length - 1 ? 'disabled' : ''}>${icon('arrow-down')}</button><button class="icon-button" data-queue-remove="${index}" aria-label="${index + 1}번 곡 대기열에서 빼기" title="대기열에서 빼기">${icon('minus')}</button></div></article>`;
-    }).join('') : '<div class="empty-state compact"><h2>대기열이 비었습니다</h2><p>컬렉션에서 음악을 선택해 주세요.</p><button class="secondary-button" id="queue-to-library">컬렉션 열기</button></div>';
+      return localizeMarkup`<article class="listening-row ${index === player.index ? 'is-queued-current' : ''}" data-entry-key="${row.key}"><span class="queue-number">${index + 1}</span>${song ? coverMarkup(song) : icon('disc')}<button class="song-link" data-queue-play="${index}"><strong>${esc(song?.title || t('사용할 수 없는 곡'))}</strong><small>${esc(joined(artistName(song?.artist), index === player.index ? t('현재 곡') : ''))}</small></button><div class="row-actions"><button class="icon-button" data-queue-up="${index}" aria-label="${index + 1}번 곡 위로" title="위로" ${index === 0 ? 'disabled' : ''}>${icon('arrow-up')}</button><button class="icon-button" data-queue-down="${index}" aria-label="${index + 1}번 곡 아래로" title="아래로" ${index === player.queue.length - 1 ? 'disabled' : ''}>${icon('arrow-down')}</button><button class="icon-button" data-queue-remove="${index}" aria-label="${index + 1}번 곡 대기열에서 빼기" title="대기열에서 빼기">${icon('minus')}</button></div></article>`;
+    }).join('') : localizeMarkup`<div class="empty-state compact"><h2>대기열이 비었습니다</h2><p>컬렉션에서 음악을 선택해 주세요.</p><button class="secondary-button" id="queue-to-library">컬렉션 열기</button></div>`;
     root.querySelector('#queue-to-library')?.addEventListener('click', () => document.querySelector('.nav-button[data-route="library"]').click());
     for (const name of ['play', 'up', 'down', 'remove']) root.querySelectorAll(`[data-queue-${name}]`).forEach(button => button.addEventListener('click', () => { const index = Number(button.getAttribute(`data-queue-${name}`)); if (name === 'play') player.select(index); if (name === 'up') player.move(index, index - 1); if (name === 'down') player.move(index, index + 1); if (name === 'remove') player.remove(index); }));
     if (entryKey && action) {
@@ -95,13 +96,13 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
       if (queuePopup.isOpen()) revealWithin(scroller, target);
     }
     else scroller.scrollTop = scrollTop;
-    document.querySelector('#queue-order-summary').textContent = `현재 재생 순서 · ${player.queue.length}곡`;
+    document.querySelector('#queue-order-summary').textContent = t("현재 재생 순서 · {0}곡", player.queue.length);
     document.querySelector('#transition-setting').value = String(player.fadeSeconds);
     document.querySelector('#queue-save-open').disabled = !player.queue.length;
     const saved = document.querySelector('#saved-queues');
     const restoreSavedFocus = retainFocus(saved);
-    saved.innerHTML = (state.queues || []).map(row => `<article class="listening-row"><div class="song-link"><strong>${esc(row.name)}</strong><small>${row.trackIds.length}곡</small></div><button class="secondary-button" data-load-queue="${row.id}">불러오기</button></article>`).join('') || '<p class="section-description">대기열에 이름을 붙여 보관하세요.</p>';
-    saved.querySelectorAll('[data-load-queue]').forEach(button => button.addEventListener('click', () => { const row = state.queues.find(row => row.id === Number(button.dataset.loadQueue)); player.setQueue(row.trackIds, 0, `저장한 대기열 · ${row.name}`); toast('대기열을 불러왔습니다. 재생 버튼을 눌러 주세요.'); }));
+    saved.innerHTML = (state.queues || []).map(row => localizeMarkup`<article class="listening-row"><div class="song-link"><strong>${esc(row.name)}</strong><small>${row.trackIds.length}곡</small></div><button class="secondary-button" data-load-queue="${row.id}">불러오기</button></article>`).join('') || localizeMarkup`<p class="section-description">대기열에 이름을 붙여 보관하세요.</p>`;
+    saved.querySelectorAll('[data-load-queue]').forEach(button => button.addEventListener('click', () => { const row = state.queues.find(row => row.id === Number(button.dataset.loadQueue)); player.setQueue(row.trackIds, 0, t("저장한 대기열 · {0}", row.name)); toast(t('대기열을 불러왔습니다. 재생 버튼을 눌러 주세요.')); }));
     restoreSavedFocus();
   }
   document.querySelector('#transition-setting').addEventListener('change', event => player.setTransition(event.target.value));
@@ -118,8 +119,8 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
     event.preventDefault(); if (savingQueue) return;
     const form = event.currentTarget, controls = [...form.querySelectorAll('button,input')];
     savingQueue = true; controls.forEach(control => control.disabled = true);
-    try { await post('/api/queues', { name: form.elements.name.value, trackIds: player.queue.map(row => row.trackId) }); form.reset(); queueDialog.close(); try { await refresh(); toast('대기열을 저장했습니다.'); } catch { toast('대기열을 저장했습니다. 목록은 다시 불러와 주세요.'); } }
-    catch (error) { const panel = document.querySelector('#queue-save-error'); panel.textContent = error.message; panel.hidden = false; }
+    try { await post('/api/queues', { name: form.elements.name.value, trackIds: player.queue.map(row => row.trackId) }); form.reset(); queueDialog.close(); try { await refresh(); toast(t('대기열을 저장했습니다.')); } catch { toast(t('대기열을 저장했습니다. 목록은 다시 불러와 주세요.')); } }
+    catch (error) { const panel = document.querySelector('#queue-save-error'); panel.textContent = t(error.message); panel.hidden = false; }
     finally { savingQueue = false; controls.forEach(control => control.disabled = false); }
   });
   const volumeButton = document.querySelector('#volume-open');
@@ -171,11 +172,11 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
     const errorButton = document.querySelector('#playback-error-open');
     errorButton.hidden = !problem;
     if (problem) {
-      const summary = player.status.startsWith('다음 곡 준비') ? '다음 곡을 준비하지 못했습니다.' : '음원을 재생하지 못했습니다.';
+      const summary = player.status.startsWith('다음 곡 준비') ? t('다음 곡을 준비하지 못했습니다.') : t('음원을 재생하지 못했습니다.');
       document.querySelector('#mini-status').textContent = summary;
-      document.querySelector('#playback-error-reason').textContent = playbackError || player.status;
-      errorButton.setAttribute('aria-label', `${summary} 자세히 및 다시 시도`);
-      errorButton.title = `${summary} · 다시 시도`;
+      document.querySelector('#playback-error-reason').textContent = t(playbackError || player.status);
+      errorButton.setAttribute('aria-label', t("{0} 자세히 및 다시 시도", summary));
+      errorButton.title = t("{0} · 다시 시도", summary);
     } else {
       playbackError = '';
       if (errorDialog.open) {
@@ -194,7 +195,7 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
     }
     const shuffle = document.querySelector('#mini-shuffle');
     shuffle.setAttribute('aria-pressed', String(player.shuffle));
-    shuffle.setAttribute('aria-label', shuffle.title = `셔플: ${player.shuffle ? '켬' : '끔'}`);
+    shuffle.setAttribute('aria-label', shuffle.title = t("셔플: {0}", player.shuffle ? t('켬') : t('끔')));
     const repeat = document.querySelector('#mini-repeat');
     repeat.setAttribute('aria-pressed', String(player.repeat !== 'off'));
     repeat.setAttribute('aria-label', repeat.title = repeatLabel());
@@ -203,14 +204,14 @@ export function setupListeningUI({ player, state, openTrack, playList, refresh, 
     volumeSlider.value = player.muted ? '0' : String(player.volume);
     const muted = player.muted || player.volume === 0;
     volumeButton.setAttribute('aria-pressed', String(muted));
-    volumeButton.setAttribute('aria-label', volumeButton.title = muted ? '음소거 해제' : '음소거');
+    volumeButton.setAttribute('aria-label', volumeButton.title = muted ? t('음소거 해제') : t('음소거'));
     if (volumeButton.dataset.muted !== String(muted)) {
       volumeButton.innerHTML = icon(muted ? 'volume-x' : 'volume-2');
       volumeButton.dataset.muted = String(muted);
     }
     document.querySelectorAll('[data-current-id]').forEach(row => row.classList.toggle('is-current', Number(row.dataset.currentId) === player.trackId));
   }
-  function repeatLabel() { return `반복: ${{ off: '끔', all: '전체', one: '한 곡' }[player.repeat]}`; }
+  function repeatLabel() { return t("반복: {0}", { off: t('끔'), all: t('전체'), one: t('한 곡') }[player.repeat]); }
   document.querySelector('#mini-shuffle').addEventListener('click', () => player.setShuffle(!player.shuffle));
   document.querySelector('#mini-repeat').addEventListener('click', () => player.setRepeat({ off: 'all', all: 'one', one: 'off' }[player.repeat]));
   document.querySelector('#mini-track').addEventListener('click', () => { if (player.trackId) openTrack(player.trackId); });
