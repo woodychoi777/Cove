@@ -1,0 +1,22 @@
+name: 문제 제보
+description: 음원·DB·개인 기록과 개인 경로가 든 로그는 공개 이슈에 첨부하지 마세요.
+title: '[Bug] '
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Cove 버전과 운영체제
+      placeholder: 예시 — 0.1.19 / Windows 11 x64
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 순서와 실제 결과
+      description: 파일 문제는 포맷·길이와 공개/합성 샘플을 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 결과
