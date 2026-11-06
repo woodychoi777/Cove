@@ -1,7 +1,7 @@
 {
   "name": "cove-desktop",
   "productName": "Cove",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "private": true,
   "main": "desktop/main.cjs",
   "description": "음악과 가사, 나의 기록을 간직하는 개인 음악 서재",

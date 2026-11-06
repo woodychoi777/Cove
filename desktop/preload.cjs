@@ -1,4 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const argument = name => process.argv.find(value => value.startsWith(`--cove-${name}=`))?.split('=')[1];
+contextBridge.exposeInMainWorld('coveLanguage', Object.freeze({
+  preference: argument('language'),
+  systemLanguages: [argument('locale')],
+  save: value => ipcRenderer.invoke('language:save', value)
+}));
 contextBridge.exposeInMainWorld('covePlatform', process.platform);
 contextBridge.exposeInMainWorld('coveFolders', Object.freeze({
   openAutoImport: () => ipcRenderer.invoke('auto-import:open-folder'),
