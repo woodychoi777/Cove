@@ -1,6 +1,8 @@
-# Cove
+# Cove · Offline Music Player
 
-내 음악 파일과 가사, 나의 코멘트를 간직하는 로컬 음악 서재입니다. Today에서 음악을 고르고, Collection의 소장곡과 플레이리스트를 이어 듣습니다. 계정이나 인터넷 연결 없이 재생합니다.
+Cove is an open-source offline music player and local music library for macOS, with a Windows preview. Play your FLAC, MP3, and M4A files, follow synced LRC lyrics, and keep playlists and personal notes on your device.
+
+Cove는 내 음악 파일을 재생하는 오프라인 음악 플레이어이자 로컬 음악 서재입니다. Today에서 음악을 고르고, Collection의 소장곡과 플레이리스트를 이어 듣습니다. 계정이나 인터넷 연결 없이 음악을 듣고, 재생에 맞춰 가사를 보며 코멘트를 남길 수 있습니다.
 
 ## 설치
 
