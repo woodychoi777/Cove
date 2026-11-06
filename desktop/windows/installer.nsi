@@ -41,7 +41,8 @@ Function .onInit
 FunctionEnd
 Section "Cove"
   SetOutPath "$INSTDIR"
-  File /r "${APP_DIR}/*"
+  !cd "${APP_DIR}"
+  File /r "*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Cove"
   CreateShortcut "$SMPROGRAMS\Cove\Cove.lnk" "$INSTDIR\Cove.exe"
