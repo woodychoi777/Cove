@@ -1,0 +1,35 @@
+data/
+.DS_Store
+node_modules/
+*.log
+dist/
+.desktop-build/
+
+# Local work and private review materials
+.planning/
+.agents/
+.codex/
+.env*
+*.sqlite*
+*.db
+*.mobileprovision
+desktop/library-default.json
+PRODUCT_SPEC.md
+docs/*
+!docs/public/
+.windows-build/
+
+# Installers and personal audio belong outside the source repository
+*.exe
+*.dmg
+*.zip
+*.flac
+*.alac
+*.mp3
+*.aac
+*.ogg
+*.wav
+*.lrc
+*.m4a
+!tests/fixtures/aac-tone.m4a
+!tests/fixtures/aac-controls-tone.m4a
