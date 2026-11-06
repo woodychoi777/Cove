@@ -1,0 +1,30 @@
+{
+  "name": "soriseojae-prototype",
+  "version": "0.1.19",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.mjs",
+    "start": "node src/server.mjs",
+    "desktop": "electron desktop/main.cjs",
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "desktop:dmg": "zsh scripts/package-desktop-dmg.sh",
+    "test": "node --test tests/*.test.mjs",
+    "autostart:install": "zsh scripts/install-autostart.sh",
+    "autostart:remove": "zsh scripts/uninstall-autostart.sh",
+    "windows:build": "node scripts/build-windows.mjs",
+    "public:prepare": "node scripts/prepare-public-release.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "music-metadata": "^11.16.1"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "@resvg/resvg-js": "2.6.2",
+    "electron": "45.0.0"
+  },
+  "license": "MIT"
+}
