@@ -6,8 +6,15 @@ test('Windows packaged app: first window, local import/playback, settings and no
  t.after(async()=>{await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().forEach(w=>w.destroy())).catch(()=>{});await app.close().catch(()=>{});});
  const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));await expect(page.getByRole('heading',{name:'Today',exact:true})).toBeVisible();
  assert.equal(await page.evaluate(()=>window.covePlatform),'win32');assert.equal(await page.evaluate(()=>window.coveMedia),undefined);
- await page.locator('#collection-add').click();const bytes=playableFlac({title:'Windows 검사',seconds:4});await page.locator('#file-input').setInputFiles({name:'한글 음악.flac',mimeType:'audio/flac',buffer:bytes});await expect(page.locator('#import-complete')).toBeVisible();await expect(page.locator('#import-complete h2')).toHaveText('1곡 추가됨');
- await page.locator('.nav-button[data-route="library"]').click();await page.locator('#library-grid [data-row-play]').first().click();await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');await page.locator('#mini-play').click();
+ // Today is in the initial HTML. Wait for the renderer to load the library and bind navigation.
+ await expect(page.locator('#import-library-path')).not.toHaveText('');
+ await page.locator('#collection-add').click();
+ await expect(page.locator('[data-view="import"]')).toBeVisible();
+ const bytes=playableFlac({title:'Windows 검사',seconds:4});
+ await page.locator('#file-input').setInputFiles({name:'한글 음악.flac',mimeType:'audio/flac',buffer:bytes});
+ await expect(page.locator('#import-complete')).toBeVisible();
+ await expect(page.locator('#import-complete h2')).toHaveText('1곡 추가됨');
+ await page.locator('#open-imported').click();await page.locator('#library-grid [data-row-play]').first().click();await expect(page.locator('#mini-play')).toHaveAttribute('aria-label','일시정지');await page.locator('#mini-play').click();
  const url=new URL(page.url()).origin,state=await page.request.get(url+'/api/state').then(r=>r.json());const track=await page.request.get(url+'/api/tracks/'+state.tracks[0].id).then(r=>r.json());assert.deepEqual(await readFile(join(data,'library',track.managedPath)),bytes);
  await page.locator('#settings-open').click();await expect(page.locator('.settings-signature')).toHaveText('Made by woodychoi777');await page.locator('#alarm-open').click();await expect(page.locator('.alarm-help')).toContainText('Windows 잠자기 깨우기는 지원하지 않습니다');await page.keyboard.press('Escape');assert.deepEqual(errors,[]);
 });
